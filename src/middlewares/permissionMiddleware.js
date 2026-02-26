@@ -10,77 +10,78 @@ const ROLE_HIERARCHY = {
   supervisor: ['supervisor', 'cashier', 'viewer'],
   cashier: ['cashier', 'viewer'],
   viewer: ['viewer'],
+  superadmin: ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
 };
 
 // Permission definitions
 const PERMISSIONS = {
   // Users management
-  'users:create': ['owner', 'admin'],
-  'users:read': ['owner', 'admin', 'supervisor'],
-  'users:update': ['owner', 'admin'],
-  'users:delete': ['owner'],
-  'users:reset-password': ['owner', 'admin'],
+  'users:create': ['owner', 'admin', 'superadmin'],
+  'users:read': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'users:update': ['owner', 'admin', 'superadmin'],
+  'users:delete': ['owner', 'superadmin'],
+  'users:reset-password': ['owner', 'admin', 'superadmin'],
   
   // Products management
-  'products:create': ['owner', 'admin', 'supervisor'],
-  'products:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
-  'products:update': ['owner', 'admin', 'supervisor'],
-  'products:delete': ['owner', 'admin'],
-  'products:adjust-stock': ['owner', 'admin', 'supervisor'],
+  'products:create': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'products:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
+  'products:update': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'products:delete': ['owner', 'admin', 'superadmin'],
+  'products:adjust-stock': ['owner', 'admin', 'supervisor', 'superadmin'],
   
   // Categories management
-  'categories:create': ['owner', 'admin'],
-  'categories:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
-  'categories:update': ['owner', 'admin'],
-  'categories:delete': ['owner', 'admin'],
+  'categories:create': ['owner', 'admin', 'superadmin'],
+  'categories:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
+  'categories:update': ['owner', 'admin', 'superadmin'],
+  'categories:delete': ['owner', 'admin', 'superadmin'],
   
   // Sales (POS)
-  'sales:create': ['owner', 'admin', 'supervisor', 'cashier'],
-  'sales:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
-  'sales:cancel': ['owner', 'admin', 'supervisor'],
-  'sales:refund': ['owner', 'admin'],
+  'sales:create': ['owner', 'admin', 'supervisor', 'cashier', 'superadmin'],
+  'sales:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
+  'sales:cancel': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'sales:refund': ['owner', 'admin', 'superadmin'],
   
   // Inventory
-  'inventory:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
-  'inventory:adjust': ['owner', 'admin', 'supervisor'],
-  'inventory:movements': ['owner', 'admin', 'supervisor'],
+  'inventory:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
+  'inventory:adjust': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'inventory:movements': ['owner', 'admin', 'supervisor', 'superadmin'],
   
   // Reports
-  'reports:read': ['owner', 'admin', 'supervisor'],
-  'reports:view-costs': ['owner', 'admin'],
-  'reports:export': ['owner', 'admin', 'supervisor'],
+  'reports:read': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'reports:view-costs': ['owner', 'admin', 'superadmin'],
+  'reports:export': ['owner', 'admin', 'supervisor', 'superadmin'],
   
   // Settings
-  'settings:read': ['owner', 'admin'],
-  'settings:update': ['owner', 'admin'],
-  'settings:business': ['owner'],
+  'settings:read': ['owner', 'admin', 'superadmin'],
+  'settings:update': ['owner', 'admin', 'superadmin'],
+  'settings:business': ['owner', 'superadmin'],
   
   // Suppliers
-  'suppliers:create': ['owner', 'admin'],
-  'suppliers:read': ['owner', 'admin', 'supervisor'],
-  'suppliers:update': ['owner', 'admin'],
-  'suppliers:delete': ['owner', 'admin'],
+  'suppliers:create': ['owner', 'admin', 'superadmin'],
+  'suppliers:read': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'suppliers:update': ['owner', 'admin', 'superadmin'],
+  'suppliers:delete': ['owner', 'admin', 'superadmin'],
   
   // Customers
-  'customers:create': ['owner', 'admin', 'supervisor', 'cashier'],
-  'customers:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
-  'customers:update': ['owner', 'admin', 'supervisor'],
-  'customers:delete': ['owner', 'admin'],
+  'customers:create': ['owner', 'admin', 'supervisor', 'cashier', 'superadmin'],
+  'customers:read': ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
+  'customers:update': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'customers:delete': ['owner', 'admin', 'superadmin'],
   
   // Purchase Orders
-  'purchase-orders:create': ['owner', 'admin'],
-  'purchase-orders:read': ['owner', 'admin', 'supervisor'],
-  'purchase-orders:update': ['owner', 'admin'],
-  'purchase-orders:receive': ['owner', 'admin', 'supervisor'],
-  'purchase-orders:delete': ['owner', 'admin'],
+  'purchase-orders:create': ['owner', 'admin', 'superadmin'],
+  'purchase-orders:read': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'purchase-orders:update': ['owner', 'admin', 'superadmin'],
+  'purchase-orders:receive': ['owner', 'admin', 'supervisor', 'superadmin'],
+  'purchase-orders:delete': ['owner', 'admin', 'superadmin'],
   
   // Cash Registers
-  'cash-registers:create': ['owner', 'admin'],
-  'cash-registers:read': ['owner', 'admin', 'supervisor', 'cashier'],
-  'cash-registers:update': ['owner', 'admin'],
-  'cash-registers:open': ['owner', 'admin', 'supervisor', 'cashier'],
-  'cash-registers:close': ['owner', 'admin', 'supervisor', 'cashier'],
-  'cash-registers:delete': ['owner', 'admin'],
+  'cash-registers:create': ['owner', 'admin', 'superadmin'],
+  'cash-registers:read': ['owner', 'admin', 'supervisor', 'cashier', 'superadmin'],
+  'cash-registers:update': ['owner', 'admin', 'superadmin'],
+  'cash-registers:open': ['owner', 'admin', 'supervisor', 'cashier', 'superadmin'],
+  'cash-registers:close': ['owner', 'admin', 'supervisor', 'cashier', 'superadmin'],
+  'cash-registers:delete': ['owner', 'admin', 'superadmin'],
 };
 
 /**
@@ -89,8 +90,8 @@ const PERMISSIONS = {
 const hasPermission = (userRole, permission) => {
   const allowedRoles = PERMISSIONS[permission];
   if (!allowedRoles) {
-    // If permission not defined, only owner can access
-    return userRole === 'owner';
+    // If permission not defined, only owner and superadmin can access
+    return userRole === 'owner' || userRole === 'superadmin';
   }
   return allowedRoles.includes(userRole);
 };
@@ -112,8 +113,8 @@ const permissionMiddleware = (permission) => {
     try {
       const userRole = req.user.role;
       
-      // Owner and admin have all permissions
-      if (hasRole(userRole, ['owner', 'admin'])) {
+      // Owner, admin and superadmin have all permissions
+      if (hasRole(userRole, ['owner', 'admin', 'superadmin'])) {
         return next();
       }
       

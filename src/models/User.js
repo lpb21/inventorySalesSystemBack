@@ -14,12 +14,15 @@ const User = sequelize.define('User', {
   },
   tenant_id: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'tenants',
       key: 'id',
     },
     field: 'tenant_id',
+    validate: {
+      isUUID: 4,
+    },
   },
   email: {
     type: DataTypes.STRING(255),
@@ -41,7 +44,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(50),
     allowNull: false,
     defaultValue: 'cashier',
-    values: ['owner', 'admin', 'supervisor', 'cashier', 'viewer'],
+    values: ['owner', 'admin', 'supervisor', 'cashier', 'viewer', 'superadmin'],
   },
   is_active: {
     type: DataTypes.BOOLEAN,

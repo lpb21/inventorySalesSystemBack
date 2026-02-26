@@ -1,49 +1,147 @@
+# ============================================
+# Node.js / Express Backend - .gitignore
+# Project: sisInventariosBACK
+# ============================================
+
+# ---------------------------
 # Dependencies
+# ---------------------------
 node_modules/
+.pnp
+.pnp.js
+
+# ---------------------------
+# Package manager lockfiles
+# (elige uno y comenta el resto)
+# ---------------------------
+# package-lock.json   # descomenta si usas yarn
+# yarn.lock           # descomenta si usas npm
+
+# ---------------------------
+# Environment variables
+# ¡NUNCA subir credenciales!
+# ---------------------------
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.staging
+.env.production
+.env.production.local
+.env.*.local
+
+# ---------------------------
+# Logs
+# ---------------------------
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
+pnpm-debug.log*
+lerna-debug.log*
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Build outputs
+# ---------------------------
+# Build / Compilados
+# ---------------------------
 dist/
 build/
+out/
 *.js.map
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# Temporary files
-tmp/
-temp/
-
-# Database
-*.sqlite
-*.sqlite3
-
-# Test coverage
+# ---------------------------
+# Cobertura de tests
+# ---------------------------
 coverage/
 .nyc_output/
+*.lcov
+.jest-cache/
 
-# Production
-public/
+# ---------------------------
+# Base de datos local
+# ---------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.sql.bak
+dump.rdb
+
+# ---------------------------
+# Archivos de sistema operativo
+# ---------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ---------------------------
+# IDEs y editores
+# ---------------------------
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Emacs
+*.swp
+*.swo
+*.orig
+.#*
+\#*#
+
+# ---------------------------
+# Archivos temporales
+# ---------------------------
+tmp/
+temp/
+.cache/
+.parcel-cache/
+
+# ---------------------------
+# Uploads / Archivos generados
+# ---------------------------
+uploads/
+public/uploads/
+storage/
+*.backup
+
+# ---------------------------
+# Sequelize / Migraciones
+# ---------------------------
+# No ignorar migrations ni seeders; son parte del código
+# Pero sí ignorar backups de migraciones
+*.migration.bak
+
+# ---------------------------
+# Docker (si aplica)
+# ---------------------------
+.dockerenv
+docker-compose.override.yml
+
+# ---------------------------
+# Misc
+# ---------------------------
+*.tgz
+*.tar.gz
+*.zip
+.eslintcache
+.stylelintcache
