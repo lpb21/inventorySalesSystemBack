@@ -58,23 +58,39 @@ const Product = sequelize.define('Product', {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false,
     defaultValue: 0,
+    get() {
+      const value = this.getDataValue('price');
+      return value ? parseFloat(value) : 0;
+    },
   },
   cost: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false,
     defaultValue: 0,
     field: 'cost',
+    get() {
+      const value = this.getDataValue('cost');
+      return value ? parseFloat(value) : 0;
+    },
   },
   stock: {
     type: DataTypes.DECIMAL(12, 3),
     allowNull: false,
     defaultValue: 0,
+    get() {
+      const value = this.getDataValue('stock');
+      return value ? parseFloat(value) : 0;
+    },
   },
   min_stock: {
     type: DataTypes.DECIMAL(12, 3),
     allowNull: false,
     defaultValue: 0,
     field: 'min_stock',
+    get() {
+      const value = this.getDataValue('min_stock');
+      return value ? parseFloat(value) : 0;
+    },
   },
   unit: {
     type: DataTypes.STRING(20),

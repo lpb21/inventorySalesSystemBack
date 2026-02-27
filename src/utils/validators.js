@@ -7,11 +7,11 @@ const Joi = require('joi');
 const uuidSchema = Joi.string().uuid().optional();
 const requiredUUID = Joi.string().uuid().required();
 const requiredString = Joi.string().required().max(255);
-const optionalString = Joi.string().optional().max(255);
+const optionalString = Joi.string().optional().max(255).allow(null, '');
 const requiredNumber = Joi.number().required();
-const optionalNumber = Joi.number().optional();
+const optionalNumber = Joi.number().optional().allow(null);
 const requiredBoolean = Joi.boolean().required();
-const optionalBoolean = Joi.boolean().optional();
+const optionalBoolean = Joi.boolean().optional().allow(null);
 
 // Auth schemas
 const loginSchema = Joi.object({
@@ -67,8 +67,8 @@ const categorySchema = Joi.object({
 // Product schemas
 const productSchema = Joi.object({
   name: requiredString.max(255),
-  category_id: requiredUUID,
-  description: Joi.string().optional(),
+  category_id: requiredUUID.allow(null, ''),
+  description: optionalString,
   sku: optionalString.max(50),
   barcode: optionalString.max(100),
   price: requiredNumber.positive(),
@@ -78,6 +78,7 @@ const productSchema = Joi.object({
   unit: Joi.string().valid('kg', 'lb', 'und', 'paq', 'l', 'ml').default('und'),
   type: Joi.string().valid('weight', 'unit', 'portion').default('unit'),
   image_url: optionalString,
+  expiry_date: Joi.string().optional().allow(null, ''),
   is_active: optionalBoolean.default(true),
 });
 
@@ -96,13 +97,14 @@ const inventoryAdjustmentSchema = Joi.object({
 
 // Sale schemas
 const saleSchema = Joi.object({
+  customer_id: uuidSchema.allow(null, ''),
   customer_name: optionalString,
   customer_document: optionalString.max(50),
   subtotal: requiredNumber.min(0),
   discount: optionalNumber.min(0).default(0),
   tax: optionalNumber.min(0).default(0),
   total: requiredNumber.min(0),
-  payment_method: Joi.string().valid('cash', 'card', 'transfer').required(),
+  payment_method: Joi.string().valid('cash', 'card', 'transfer', 'credit').required(),
   payment_received: optionalNumber.min(0).default(0),
   change_given: optionalNumber.min(0).default(0),
   note: optionalString,
@@ -115,6 +117,7 @@ const saleSchema = Joi.object({
     })
   ).min(1).required(),
 });
+
 
 const cancelSaleSchema = Joi.object({
   reason: Joi.string().required().max(500),

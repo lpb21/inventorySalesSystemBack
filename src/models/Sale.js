@@ -84,9 +84,10 @@ const Sale = sequelize.define('Sale', {
   payment_method: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    values: ['cash', 'card', 'transfer', 'digital'],
+    values: ['cash', 'card', 'transfer', 'digital', 'credit'],
     field: 'payment_method',
   },
+
   amount_received: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false,

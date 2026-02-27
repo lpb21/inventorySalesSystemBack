@@ -18,16 +18,32 @@ class ReportController {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    // Today's sales
+    // Today's sales with items for profit calculation
     const todaySales = await Sale.findAll({
       where: {
         tenant_id: req.tenantId,
         created_at: { [Op.gte]: today, [Op.lte]: todayEnd },
         status: 'completed',
       },
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'cost'] }],
+        },
+      ],
     });
 
+    // Calculate today's revenue
     const todayRevenue = todaySales.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
+
+    // Calculate today's cost and profit
+    const todayCost = todaySales.reduce((sum, sale) => {
+      return sum + sale.items.reduce((itemSum, item) => {
+        return itemSum + (parseFloat(item.product?.cost || 0) * parseFloat(item.quantity));
+      }, 0);
+    }, 0);
+    const todayProfit = todayRevenue - todayCost;
     const todayTransactions = todaySales.length;
 
     // Total products
@@ -59,6 +75,7 @@ class ReportController {
     res.status(200).json(formatResponse({
       summary: {
         todayRevenue,
+        todayProfit,
         todayTransactions,
         totalProducts,
         lowStockCount: lowStockProducts.length,

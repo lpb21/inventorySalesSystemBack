@@ -48,7 +48,20 @@ const Customer = sequelize.define('Customer', {
     defaultValue: true,
     field: 'is_active',
   },
+  credit_balance: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0,
+    field: 'credit_balance',
+  },
+  credit_limit: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0,
+    field: 'credit_limit',
+  },
 }, {
+
   tableName: 'customers',
   indexes: [
     {

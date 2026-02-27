@@ -3,9 +3,11 @@
  * Handles sales business logic
  */
 const { Op } = require('sequelize');
-const { Sale, SaleItem, Product, InventoryMovement, sequelize } = require('../models');
+const { Sale, SaleItem, Product, InventoryMovement, Customer, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+const cacheService = require('./cacheService');
+
 
 class SaleService {
   /**
@@ -71,14 +73,66 @@ class SaleService {
       const tax = parseFloat(saleData.tax) || 0;
       const total = subtotal - discount + tax;
       
-      // Si payment_received no está definido o es 0, usar el total
-      const paymentReceived = parseFloat(saleData.payment_received) || total;
-      const changeGiven = Math.max(0, paymentReceived - total);
+      // Handle credit sales differently
+      const isCreditSale = saleData.payment_method === 'credit';
+      let paymentReceived, changeGiven;
+      
+      if (isCreditSale) {
+        // For credit sales, no immediate payment received
+        paymentReceived = 0;
+        changeGiven = 0;
+        
+        // Validate customer_id is provided for credit sales
+        if (!saleData.customer_id) {
+          throw new ValidationError('Se requiere un cliente para ventas a crédito');
+        }
+        
+        // Check customer credit limit
+        const customer = await Customer.findOne({
+          where: { id: saleData.customer_id, tenant_id: tenantId },
+        });
+        
+        if (!customer) {
+          throw new NotFoundError('Cliente no encontrado');
+        }
+        
+        const currentBalance = parseFloat(customer.credit_balance) || 0;
+        const creditLimit = parseFloat(customer.credit_limit) || 0;
+        const newBalance = currentBalance + total;
+        
+        if (creditLimit > 0 && newBalance > creditLimit) {
+
+          throw new ValidationError(
+            'La venta no fue posible - límite de crédito alcanzado, por favor aumenta el valor del crédito'
+          );
+        }
+
+        
+        // Update customer credit balance
+        await customer.update({ credit_balance: newBalance }, { transaction });
+
+        // Invalidate cache for this customer
+        await cacheService.invalidateKeys([
+          cacheService.getCustomerBalanceKey(tenantId, saleData.customer_id),
+        ]);
+        await cacheService.invalidate(
+          cacheService.getCustomerCreditSalesPattern(tenantId, saleData.customer_id)
+        );
+        await cacheService.invalidate(
+          cacheService.getCustomersWithCreditPattern(tenantId)
+        );
+      } else {
+        // Regular sale - Si payment_received no está definido o es 0, usar el total
+        paymentReceived = parseFloat(saleData.payment_received) || total;
+        changeGiven = Math.max(0, paymentReceived - total);
+      }
+
 
       // Create sale
       const sale = await Sale.create({
         tenant_id: tenantId,
         user_id: userId,
+        customer_id: saleData.customer_id || null,
         customer_name: saleData.customer_name,
         customer_document: saleData.customer_document,
         subtotal,
@@ -91,6 +145,7 @@ class SaleService {
         status: 'completed',
         note: saleData.note,
       }, { transaction });
+
 
       // Create sale items
       const saleItems = await SaleItem.bulkCreate(
@@ -276,6 +331,19 @@ class SaleService {
       }, { transaction });
 
       await transaction.commit();
+
+      // Invalidate cache if it was a credit sale
+      if (sale.payment_method === 'credit' && sale.customer_id) {
+        await cacheService.invalidateKeys([
+          cacheService.getCustomerBalanceKey(tenantId, sale.customer_id),
+        ]);
+        await cacheService.invalidate(
+          cacheService.getCustomerCreditSalesPattern(tenantId, sale.customer_id)
+        );
+        await cacheService.invalidate(
+          cacheService.getCustomersWithCreditPattern(tenantId)
+        );
+      }
 
       return this.getSaleById(tenantId, saleId);
     } catch (error) {
