@@ -14,11 +14,40 @@ class TenantController {
    * Create new tenant with owner user (superadmin only)
    */
   createTenant = asyncHandler(async (req, res, next) => {
-    const { name, slug, business_name, email, address, phone, owner_name, owner_email, owner_password } = req.body;
+    const { 
+      name, 
+      slug, 
+      business_name, 
+      email, 
+      address, 
+      phone, 
+      plan,
+      subscription_end_date,
+      owner_name, 
+      owner_email, 
+      owner_password 
+    } = req.body;
 
-    // Validate required fields
+    // Validate required fields (handled by Joi validation middleware)
+    // But we keep this check as backup
     if (!name || !slug || !owner_name || !owner_email || !owner_password) {
-      return res.status(400).json(formatResponse(null, 'Faltan campos requeridos'));
+      return res.status(400).json(formatResponse(null, 'Faltan campos requeridos: name, slug, owner_name, owner_email, owner_password'));
+    }
+
+    if (!address) {
+      return res.status(400).json(formatResponse(null, 'La dirección es requerida'));
+    }
+
+    if (!phone) {
+      return res.status(400).json(formatResponse(null, 'El teléfono es requerido'));
+    }
+
+    if (!plan) {
+      return res.status(400).json(formatResponse(null, 'El plan es requerido'));
+    }
+
+    if (!subscription_end_date) {
+      return res.status(400).json(formatResponse(null, 'La fecha de terminación es requerida'));
     }
 
     // Check if tenant slug already exists
@@ -33,17 +62,29 @@ class TenantController {
       return res.status(409).json(formatResponse(null, 'Ya existe un usuario con ese email'));
     }
 
-    // Create tenant
+    // Parse the subscription end date
+    let trialEndsAt;
+    try {
+      trialEndsAt = new Date(subscription_end_date);
+      if (isNaN(trialEndsAt.getTime())) {
+        return res.status(400).json(formatResponse(null, 'La fecha de terminación tiene un formato inválido'));
+      }
+    } catch (error) {
+      return res.status(400).json(formatResponse(null, 'La fecha de terminación tiene un formato inválido'));
+    }
+
+    // Create tenant with the provided data
     const tenant = await Tenant.create({
       id: uuidv4(),
       name,
       slug,
       business_name: business_name || name,
       email: email || owner_email,
-      address: address || '',
-      phone: phone || '',
-      plan: 'free',
+      address: address,
+      phone: phone,
+      plan: plan,
       subscription_status: 'active',
+      trial_ends_at: trialEndsAt,
       is_active: true
     });
 
@@ -65,7 +106,11 @@ class TenantController {
         id: tenant.id,
         name: tenant.name,
         slug: tenant.slug,
-        business_name: tenant.business_name
+        business_name: tenant.business_name,
+        address: tenant.address,
+        phone: tenant.phone,
+        plan: tenant.plan,
+        subscription_end_date: tenant.trial_ends_at
       },
       owner: {
         id: user.id,

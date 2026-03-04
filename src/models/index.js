@@ -15,6 +15,7 @@ const Supplier = require('./Supplier');
 const CashRegister = require('./CashRegister');
 const PurchaseOrder = require('./PurchaseOrder');
 const PurchaseOrderItem = require('./PurchaseOrderItem');
+const AuditLog = require('./AuditLog');
 
 // =====================
 // Tenant associations
@@ -125,6 +126,15 @@ Product.hasMany(PurchaseOrderItem, { foreignKey: 'product_id', as: 'purchaseOrde
 PurchaseOrderItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
 
 // =====================
+// AuditLog associations
+// =====================
+Tenant.hasMany(AuditLog, { foreignKey: 'tenant_id', as: 'auditLogs' });
+AuditLog.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+User.hasMany(AuditLog, { foreignKey: 'user_id', as: 'auditLogs' });
+AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// =====================
 // Export all models
 // =====================
 module.exports = {
@@ -141,4 +151,5 @@ module.exports = {
   CashRegister,
   PurchaseOrder,
   PurchaseOrderItem,
+  AuditLog,
 };

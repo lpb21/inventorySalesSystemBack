@@ -130,7 +130,7 @@ class CacheService {
   }
 
   /**
-   * Invalidar claves de caché por patrón
+   * Invalidar claves de caché por patrón (using SCAN instead of KEYS for production safety)
    * @param {string} pattern - Patrón de las claves a invalidar
    */
   async invalidate(pattern) {
@@ -139,10 +139,14 @@ class CacheService {
     }
 
     try {
-      const keys = await this.client.keys(pattern);
-      if (keys.length > 0) {
-        await this.client.del(keys);
-        console.log(`Redis: Cache invalidated for pattern: ${pattern} (${keys.length} keys)`);
+      let deletedCount = 0;
+      // Use SCAN iterator instead of KEYS (non-blocking)
+      for await (const key of this.client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+        await this.client.del(key);
+        deletedCount++;
+      }
+      if (deletedCount > 0) {
+        console.log(`Redis: Cache invalidated for pattern: ${pattern} (${deletedCount} keys)`);
       }
     } catch (error) {
       console.error('Redis: Error invalidating cache:', error.message);
@@ -199,6 +203,27 @@ class CacheService {
    */
   getCustomersWithCreditPattern(tenantId) {
     return `customer:with-credit:${tenantId}:*`;
+  }
+
+  /**
+   * Genera una clave de caché para la lista de productos de un tenant
+   */
+  getProductsKey(tenantId, page = 1, limit = 20, filters = '') {
+    return `products:list:${tenantId}:${page}:${limit}:${filters}`;
+  }
+
+  /**
+   * Genera el patrón para invalidar todas las listas de productos de un tenant
+   */
+  getProductsPattern(tenantId) {
+    return `products:list:${tenantId}:*`;
+  }
+
+  /**
+   * Genera una clave de caché para el dashboard de un tenant
+   */
+  getDashboardKey(tenantId) {
+    return `dashboard:${tenantId}`;
   }
 
   /**

@@ -20,5 +20,7 @@ router.get('/inventory', permissionMiddleware('reports:read'), reportController.
 router.get('/profits', permissionMiddleware('reports:read'), reportController.getProfitReport);
 router.get('/top-products', permissionMiddleware('reports:read'), reportController.getTopProducts);
 router.get('/low-stock', permissionMiddleware('reports:read'), reportController.getLowStockReport);
+router.get('/low-rotation', permissionMiddleware('reports:read'), reportController.getLowRotationProducts);
+router.get('/audit-logs', permissionMiddleware('reports:read'), reportController.getAuditLogs);
 
 module.exports = router;

@@ -6,12 +6,16 @@ const { Op } = require('sequelize');
 const { Product, Category, InventoryMovement, Tenant } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+const auditService = require('./auditService');
+const cacheService = require('./cacheService');
+
+const PRODUCTS_CACHE_TTL = 60; // 1 minute
 
 class ProductService {
   /**
    * Create new product
    */
-  async createProduct(tenantId, productData) {
+  async createProduct(tenantId, productData, userId) {
     // Check product limit for tenant plan
     const tenant = await Tenant.findByPk(tenantId);
     const productCount = await Product.count({ where: { tenant_id: tenantId } });
@@ -53,13 +57,23 @@ class ProductService {
       tenant_id: tenantId,
     });
 
+    // Log audit
+    await auditService.logProductCreate({
+      tenantId,
+      userId,
+      product,
+    });
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+
     return product;
   }
 
   /**
    * Update product
    */
-  async updateProduct(tenantId, productId, productData) {
+  async updateProduct(tenantId, productId, productData, userId) {
     const product = await Product.findOne({
       where: { id: productId, tenant_id: tenantId },
     });
@@ -67,6 +81,16 @@ class ProductService {
     if (!product) {
       throw new NotFoundError('Producto no encontrado');
     }
+
+    // Store old data for audit
+    const oldData = {
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode,
+      price: product.price,
+      cost: product.cost,
+      stock: product.stock,
+    };
 
     // Check unique constraints if being updated
     if (productData.sku && productData.sku !== product.sku) {
@@ -88,13 +112,26 @@ class ProductService {
     }
 
     await product.update(productData);
+
+    // Log audit for product update
+    await auditService.logProductUpdate({
+      tenantId,
+      userId,
+      product,
+      oldData,
+      newData: productData,
+    });
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+
     return product;
   }
 
   /**
-   * Delete product (soft delete)
+   * Delete product (soft delete) - only if stock is 0
    */
-  async deleteProduct(tenantId, productId) {
+  async deleteProduct(tenantId, productId, userId) {
     const product = await Product.findOne({
       where: { id: productId, tenant_id: tenantId },
     });
@@ -103,7 +140,24 @@ class ProductService {
       throw new NotFoundError('Producto no encontrado');
     }
 
+    // Check if product has stock
+    const currentStock = parseFloat(product.stock) || 0;
+    if (currentStock > 0) {
+      throw new ValidationError(`No se puede eliminar el producto. Existencias actuales: ${currentStock}. Primero debe vaciar el inventario.`);
+    }
+
     await product.update({ is_active: false });
+
+    // Log audit for product deletion
+    await auditService.logProductDelete({
+      tenantId,
+      userId,
+      product,
+    });
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+
     return { message: 'Producto eliminado correctamente' };
   }
 
@@ -111,6 +165,14 @@ class ProductService {
    * Get products with pagination and filters
    */
   async getProducts(tenantId, { page = 1, limit = 20, category_id, search, is_active } = {}) {
+    // Build a filter key for cache
+    const filterKey = [category_id || '', search || '', is_active || ''].join('|');
+    const cacheKey = cacheService.getProductsKey(tenantId, page, limit, filterKey);
+
+    // Try cache first
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const where = { tenant_id: tenantId };
     
     if (category_id) {
@@ -137,10 +199,15 @@ class ProductService {
       offset: getPaginationSkip(page, limit),
     });
 
-    return {
+    const result = {
       products: rows,
       pagination: formatPagination(page, limit, count),
     };
+
+    // Cache for 60s
+    cacheService.set(cacheKey, result, PRODUCTS_CACHE_TTL).catch(() => {});
+
+    return result;
   }
 
   /**
@@ -225,7 +292,8 @@ class ProductService {
       throw new NotFoundError('Producto no encontrado');
     }
 
-    const previousStock = parseFloat(product.stock);
+    // Ensure stock is a valid number, default to 0 if null/undefined
+    const previousStock = parseFloat(product.stock) || 0;
     let newStock;
 
     switch (type) {
@@ -256,10 +324,13 @@ class ProductService {
       user_id: userId,
       type,
       quantity: Math.abs(quantity),
-      previous_stock: previousStock,
-      new_stock: newStock,
+      stock_before: previousStock,
+      stock_after: newStock,
       reason,
     });
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
 
     return product;
   }

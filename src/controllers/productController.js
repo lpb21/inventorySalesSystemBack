@@ -21,7 +21,7 @@ class ProductController {
    * Create product
    */
   createProduct = asyncHandler(async (req, res, next) => {
-    const product = await productService.createProduct(req.tenantId, req.body);
+    const product = await productService.createProduct(req.tenantId, req.body, req.user.id);
     
     res.status(201).json(formatResponse(product));
   });
@@ -41,7 +41,7 @@ class ProductController {
    * Update product
    */
   updateProduct = asyncHandler(async (req, res, next) => {
-    const product = await productService.updateProduct(req.tenantId, req.params.id, req.body);
+    const product = await productService.updateProduct(req.tenantId, req.params.id, req.body, req.user.id);
     
     res.status(200).json(formatResponse(product));
   });
@@ -51,7 +51,7 @@ class ProductController {
    * Delete product
    */
   deleteProduct = asyncHandler(async (req, res, next) => {
-    const result = await productService.deleteProduct(req.tenantId, req.params.id);
+    const result = await productService.deleteProduct(req.tenantId, req.params.id, req.user.id);
     
     res.status(200).json(formatResponse(result));
   });

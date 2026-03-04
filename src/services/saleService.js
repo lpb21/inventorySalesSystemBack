@@ -7,24 +7,36 @@ const { Sale, SaleItem, Product, InventoryMovement, Customer, sequelize } = requ
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const cacheService = require('./cacheService');
+const auditService = require('./auditService');
 
 
 class SaleService {
   /**
-   * Create new sale - OPTIMIZED for speed
+   * Create new sale - OPTIMIZED with batch queries
    */
   async createSale(tenantId, saleData, userId) {
     const transaction = await sequelize.transaction();
 
     try {
+      // Batch-load all products at once instead of one-by-one in a loop
+      const productIds = saleData.items.map(item => item.product_id);
+      const products = await Product.findAll({
+        where: { id: { [Op.in]: productIds }, tenant_id: tenantId, is_active: true },
+        transaction,
+        lock: transaction.LOCK.UPDATE, // Lock rows for stock update safety
+      });
+
+      // Build a map for quick access
+      const productMap = new Map(products.map(p => [p.id, p]));
+
       // Validate products and calculate totals
       const items = [];
+      const stockUpdates = [];
+      const movementRecords = [];
       let calculatedSubtotal = 0;
 
       for (const item of saleData.items) {
-        const product = await Product.findOne({
-          where: { id: item.product_id, tenant_id: tenantId, is_active: true },
-        });
+        const product = productMap.get(item.product_id);
 
         if (!product) {
           throw new NotFoundError(`Producto no encontrado: ${item.product_id}`);
@@ -43,29 +55,39 @@ class SaleService {
 
         items.push({
           product_id: product.id,
-          product_name: product.name, // Store for quick response
+          product_name: product.name,
           quantity: item.quantity,
           unit_price: item.unit_price,
           subtotal: itemTotal,
         });
 
-        // Deduct stock
-        const previousStock = parseFloat(product.stock);
+        // Prepare stock update
+        const previousStock = parseFloat(product.stock) || 0;
         const newStock = previousStock - parseFloat(item.quantity);
-        await product.update({ stock: newStock }, { transaction });
+        stockUpdates.push({ product, newStock });
 
-        // Record inventory movement (async - don't wait)
-        InventoryMovement.create({
+        // Prepare inventory movement record
+        movementRecords.push({
           tenant_id: tenantId,
           product_id: product.id,
           user_id: userId,
           type: 'sale',
           quantity: item.quantity,
-          previous_stock: previousStock,
-          new_stock: newStock,
+          stock_before: previousStock,
+          stock_after: newStock,
           reason: 'Venta',
-        }).catch(console.error); // Log error but don't fail the sale
+        });
       }
+
+      // Execute stock updates
+      await Promise.all(
+        stockUpdates.map(({ product, newStock }) =>
+          product.update({ stock: newStock }, { transaction })
+        )
+      );
+
+      // Bulk create inventory movements inside transaction
+      const movements = await InventoryMovement.bulkCreate(movementRecords, { transaction });
 
       // Calculate totals
       const subtotal = saleData.subtotal || calculatedSubtotal;
@@ -111,16 +133,18 @@ class SaleService {
         // Update customer credit balance
         await customer.update({ credit_balance: newBalance }, { transaction });
 
-        // Invalidate cache for this customer
-        await cacheService.invalidateKeys([
-          cacheService.getCustomerBalanceKey(tenantId, saleData.customer_id),
-        ]);
-        await cacheService.invalidate(
-          cacheService.getCustomerCreditSalesPattern(tenantId, saleData.customer_id)
-        );
-        await cacheService.invalidate(
-          cacheService.getCustomersWithCreditPattern(tenantId)
-        );
+        // Invalidate cache for this customer (fire-and-forget)
+        Promise.all([
+          cacheService.invalidateKeys([
+            cacheService.getCustomerBalanceKey(tenantId, saleData.customer_id),
+          ]),
+          cacheService.invalidate(
+            cacheService.getCustomerCreditSalesPattern(tenantId, saleData.customer_id)
+          ),
+          cacheService.invalidate(
+            cacheService.getCustomersWithCreditPattern(tenantId)
+          ),
+        ]).catch(() => {});
       } else {
         // Regular sale - Si payment_received no está definido o es 0, usar el total
         paymentReceived = parseFloat(saleData.payment_received) || total;
@@ -158,6 +182,16 @@ class SaleService {
       );
 
       await transaction.commit();
+
+      // Log audit asynchronously (fire-and-forget, don't slow down the response)
+      for (let i = 0; i < movements.length; i++) {
+        auditService.logInventoryMovement({
+          tenantId,
+          userId,
+          product: stockUpdates[i].product,
+          movement: movements[i],
+        }).catch(console.error);
+      }
 
       // Return directly without extra query - MUCH FASTER!
       return {
@@ -304,7 +338,8 @@ class SaleService {
       // Restore stock for each item
       for (const item of sale.items) {
         const product = await Product.findByPk(item.product_id, { transaction });
-        const previousStock = parseFloat(product.stock);
+        // Ensure stock is a valid number, default to 0 if null/undefined
+        const previousStock = parseFloat(product.stock) || 0;
         const newStock = previousStock + parseFloat(item.quantity);
 
         await product.update({ stock: newStock }, { transaction });
@@ -316,8 +351,8 @@ class SaleService {
           user_id: userId,
           type: 'in',
           quantity: item.quantity,
-          previous_stock: previousStock,
-          new_stock: newStock,
+          stock_before: previousStock,
+          stock_after: newStock,
           reason: `Cancelación de venta: ${reason}`,
           reference_id: saleId,
         }, { transaction });

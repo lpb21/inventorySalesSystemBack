@@ -8,12 +8,15 @@ const tenantController = require('../../controllers/tenantController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { roleMiddleware } = require('../../middlewares/permissionMiddleware');
+const { validate } = require('../../middlewares/validationMiddleware');
+const { createTenantSchema } = require('../../utils/validators');
 
 // All routes require authentication
 router.use(authMiddleware);
 
 // POST /v1/tenants - Create new tenant (owner and superadmin)
-router.post('/', roleMiddleware(['owner', 'superadmin']), tenantController.createTenant);
+// Validates required fields: name, slug, address, phone, plan, subscription_end_date, owner_name, owner_email, owner_password
+router.post('/', roleMiddleware(['owner', 'superadmin']), validate(createTenantSchema), tenantController.createTenant);
 
 // GET /v1/tenants - List all tenants (owner and superadmin)
 router.get('/', roleMiddleware(['owner', 'superadmin']), tenantController.getTenants);

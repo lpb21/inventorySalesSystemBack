@@ -1,11 +1,20 @@
 /**
  * Auth Middleware
  * Validates JWT token and attaches user to request
+ * Uses Redis cache to avoid querying the DB on every request
  */
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const { AuthenticationError } = require('../utils/errors');
 const { User } = require('../models');
+const cacheService = require('../services/cacheService');
+
+const USER_CACHE_TTL = 120; // 2 minutes
+
+/**
+ * Get cache key for a user
+ */
+const getUserCacheKey = (userId) => `auth:user:${userId}`;
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -21,25 +30,49 @@ const authMiddleware = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, env.jwt.secret);
     
-    // Get user from database
-    const user = await User.findByPk(decoded.userId);
+    // Try to get user from cache first
+    const cacheKey = getUserCacheKey(decoded.userId);
+    let userData = await cacheService.get(cacheKey);
     
-    if (!user) {
-      throw new AuthenticationError('Usuario no encontrado');
-    }
-    
-    if (!user.is_active) {
-      throw new AuthenticationError('Usuario inactivo');
+    if (!userData) {
+      // Cache miss — query DB
+      const user = await User.findByPk(decoded.userId);
+      
+      if (!user) {
+        throw new AuthenticationError('Usuario no encontrado');
+      }
+      
+      if (!user.is_active) {
+        throw new AuthenticationError('Usuario inactivo');
+      }
+      
+      userData = {
+        id: user.id,
+        userId: user.id,
+        tenantId: user.tenant_id,
+        email: user.email,
+        role: user.role,
+        isSuperadmin: user.is_superadmin,
+        is_active: user.is_active,
+      };
+      
+      // Store in cache (fire-and-forget)
+      cacheService.set(cacheKey, userData, USER_CACHE_TTL).catch(() => {});
+    } else {
+      // Cache hit — still validate active status
+      if (!userData.is_active) {
+        throw new AuthenticationError('Usuario inactivo');
+      }
     }
     
     // Attach user to request
     req.user = {
-      id: user.id,
-      userId: user.id,        // alias para compatibilidad con controllers
-      tenantId: user.tenant_id,
-      email: user.email,
-      role: user.role,
-      isSuperadmin: user.is_superadmin,
+      id: userData.id,
+      userId: userData.id,
+      tenantId: userData.tenantId,
+      email: userData.email,
+      role: userData.role,
+      isSuperadmin: userData.isSuperadmin,
     };
     
     next();
@@ -52,6 +85,13 @@ const authMiddleware = async (req, res, next) => {
       next(error);
     }
   }
+};
+
+/**
+ * Invalidate a user's auth cache (call when user is updated/deactivated)
+ */
+authMiddleware.invalidateUserCache = async (userId) => {
+  await cacheService.invalidateKeys([getUserCacheKey(userId)]);
 };
 
 module.exports = authMiddleware;

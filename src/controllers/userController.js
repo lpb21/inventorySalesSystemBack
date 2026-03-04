@@ -35,6 +35,11 @@ class UserController {
    * Create new user
    */
   createUser = asyncHandler(async (req, res, next) => {
+    // Verificar que existe un tenant para el usuario actual
+    if (!req.tenantId) {
+      throw new ValidationError('No tienes un tenant asociado para crear usuarios');
+    }
+
     const tenant = await Tenant.findByPk(req.tenantId);
     const userCount = await User.count({ where: { tenant_id: req.tenantId } });
     

@@ -6,6 +6,7 @@ const { Op } = require('sequelize');
 const { Product, InventoryMovement, Category } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+const auditService = require('./auditService');
 
 class InventoryService {
   /**
@@ -52,7 +53,8 @@ class InventoryService {
       throw new NotFoundError('Producto no encontrado');
     }
 
-    const previousStock = parseFloat(product.stock);
+    // Ensure stock is a valid number, default to 0 if null/undefined
+    const previousStock = parseFloat(product.stock) || 0;
     let newStock;
 
     switch (type) {
@@ -60,12 +62,19 @@ class InventoryService {
         newStock = previousStock + Math.abs(quantity);
         break;
       case 'out':
+      case 'waste':
+      case 'sale':
         newStock = previousStock - Math.abs(quantity);
         if (newStock < 0) {
           throw new ValidationError('Stock insuficiente');
         }
         break;
+      case 'return':
+        // Devolución aumenta el stock
+        newStock = previousStock + Math.abs(quantity);
+        break;
       case 'adjustment':
+      case 'transfer':
         newStock = Math.abs(quantity);
         break;
       default:
@@ -82,9 +91,17 @@ class InventoryService {
       user_id,
       type,
       quantity: Math.abs(quantity),
-      previous_stock: previousStock,
-      new_stock: newStock,
+      stock_before: previousStock,
+      stock_after: newStock,
       reason,
+    });
+
+    // Log audit for inventory movement
+    await auditService.logInventoryMovement({
+      tenantId,
+      userId: user_id,
+      product,
+      movement,
     });
 
     return movement;
@@ -179,7 +196,8 @@ class InventoryService {
           continue;
         }
 
-        const previousStock = parseFloat(product.stock);
+        // Ensure stock is a valid number, default to 0 if null/undefined
+        const previousStock = parseFloat(product.stock) || 0;
         let newStock;
 
         switch (type) {
@@ -187,6 +205,8 @@ class InventoryService {
             newStock = previousStock + Math.abs(quantity);
             break;
           case 'out':
+          case 'waste':
+          case 'sale':
             newStock = previousStock - Math.abs(quantity);
             if (newStock < 0) {
               results.push({
@@ -197,7 +217,12 @@ class InventoryService {
               continue;
             }
             break;
+          case 'return':
+            // Devolución aumenta el stock
+            newStock = previousStock + Math.abs(quantity);
+            break;
           case 'adjustment':
+          case 'transfer':
             newStock = Math.abs(quantity);
             break;
           default:
@@ -211,15 +236,23 @@ class InventoryService {
 
         await product.update({ stock: newStock });
 
-        await InventoryMovement.create({
+        const movement = await InventoryMovement.create({
           tenant_id: tenantId,
           product_id,
           user_id: userId,
           type,
           quantity: Math.abs(quantity),
-          previous_stock: previousStock,
-          new_stock: newStock,
+          stock_before: previousStock,
+          stock_after: newStock,
           reason,
+        });
+
+        // Log audit for bulk inventory movement
+        await auditService.logInventoryMovement({
+          tenantId,
+          userId,
+          product,
+          movement,
         });
 
         results.push({

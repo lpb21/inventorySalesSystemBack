@@ -28,6 +28,32 @@ const registerSchema = Joi.object({
 });
 
 // Tenant schemas
+const createTenantSchema = Joi.object({
+  name: requiredString.max(255),
+  slug: Joi.string().alphanum().lowercase().min(3).max(50).required(),
+  business_name: optionalString,
+  email: Joi.string().email().optional().allow(null, ''),
+  address: Joi.string().required().max(500).messages({
+    'any.required': 'La dirección es requerida',
+    'string.empty': 'La dirección es requerida'
+  }),
+  phone: Joi.string().required().max(50).messages({
+    'any.required': 'El teléfono es requerido',
+    'string.empty': 'El teléfono es requerido'
+  }),
+  plan: Joi.string().valid('free', 'basic', 'pro', 'enterprise').required().messages({
+    'any.required': 'El plan es requerido',
+    'any.only': 'El plan debe ser: free, basic, pro o enterprise'
+  }),
+  subscription_end_date: Joi.string().required().messages({
+    'any.required': 'La fecha de terminación es requerida',
+    'string.empty': 'La fecha de terminación es requerida'
+  }),
+  owner_name: requiredString.max(255),
+  owner_email: Joi.string().email().required(),
+  owner_password: Joi.string().required().min(6),
+});
+
 const updateTenantSchema = Joi.object({
   name: optionalString,
   business_name: optionalString,
@@ -91,7 +117,7 @@ const updateProductSchema = productSchema.fork(
 const inventoryAdjustmentSchema = Joi.object({
   product_id: requiredUUID,
   quantity: requiredNumber,
-  type: Joi.string().valid('in', 'out', 'adjustment', 'sale').required(),
+  type: Joi.string().valid('in', 'out', 'adjustment', 'sale', 'waste', 'return', 'transfer').required(),
   reason: Joi.string().optional().max(500),
 });
 
@@ -129,6 +155,7 @@ module.exports = {
   registerSchema,
   
   // Tenant
+  createTenantSchema,
   updateTenantSchema,
   
   // Users

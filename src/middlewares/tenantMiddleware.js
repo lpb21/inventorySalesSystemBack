@@ -1,9 +1,36 @@
 /**
  * Tenant Middleware
  * Validates and sets tenant context for the request
+ * Uses Redis cache to avoid querying the DB on every request
  */
 const { Tenant } = require('../models');
 const { AuthenticationError } = require('../utils/errors');
+const cacheService = require('../services/cacheService');
+
+const TENANT_CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Get cache key for a tenant
+ */
+const getTenantCacheKey = (tenantId) => `tenant:info:${tenantId}`;
+
+/**
+ * Get tenant from cache or DB
+ */
+const getTenantCached = async (tenantId) => {
+  const cacheKey = getTenantCacheKey(tenantId);
+  let tenantData = await cacheService.get(cacheKey);
+
+  if (!tenantData) {
+    const tenant = await Tenant.findByPk(tenantId);
+    if (tenant) {
+      tenantData = tenant.toJSON();
+      cacheService.set(cacheKey, tenantData, TENANT_CACHE_TTL).catch(() => {});
+    }
+  }
+
+  return tenantData;
+};
 
 const tenantMiddleware = async (req, res, next) => {
   try {
@@ -14,35 +41,35 @@ const tenantMiddleware = async (req, res, next) => {
       }
       req.tenantId = req.user.tenantId;
       
-      // Verify tenant exists and is active
-      const tenant = await Tenant.findByPk(req.user.tenantId);
+      // Verify tenant exists and is active (using cache)
+      const tenantData = await getTenantCached(req.user.tenantId);
       
-      if (!tenant) {
+      if (!tenantData) {
         throw new AuthenticationError('Tenant no encontrado');
       }
       
-      if (!tenant.is_active) {
+      if (!tenantData.is_active) {
         throw new AuthenticationError('La empresa está inactiva');
       }
       
       // Check subscription status
-      if (tenant.subscription_status === 'suspended') {
+      if (tenantData.subscription_status === 'suspended') {
         throw new AuthenticationError('Suscripción suspendida');
       }
       
-      if (tenant.subscription_status === 'cancelled') {
+      if (tenantData.subscription_status === 'cancelled') {
         throw new AuthenticationError('Suscripción cancelada');
       }
       
       // Check if trial period has expired
-      if (tenant.subscription_status === 'trial' && tenant.trial_ends_at) {
-        const trialEnd = new Date(tenant.trial_ends_at);
+      if (tenantData.subscription_status === 'trial' && tenantData.trial_ends_at) {
+        const trialEnd = new Date(tenantData.trial_ends_at);
         if (trialEnd < new Date()) {
           throw new AuthenticationError('Período de prueba expirado');
         }
       }
       
-      req.tenant = tenant;
+      req.tenant = tenantData;
       return next();
     }
     
@@ -52,11 +79,11 @@ const tenantMiddleware = async (req, res, next) => {
       // Use superadmin's own tenant if they have one, otherwise null
       req.tenantId = req.user.tenantId;
       
-      // If superadmin has a tenant, verify it's active
+      // If superadmin has a tenant, verify it's active (using cache)
       if (req.tenantId) {
-        const tenant = await Tenant.findByPk(req.tenantId);
-        if (tenant && tenant.is_active) {
-          req.tenant = tenant;
+        const tenantData = await getTenantCached(req.tenantId);
+        if (tenantData && tenantData.is_active) {
+          req.tenant = tenantData;
         }
       }
       
@@ -68,6 +95,13 @@ const tenantMiddleware = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+/**
+ * Invalidate a tenant's cache (call when tenant is updated)
+ */
+tenantMiddleware.invalidateTenantCache = async (tenantId) => {
+  await cacheService.invalidateKeys([getTenantCacheKey(tenantId)]);
 };
 
 module.exports = tenantMiddleware;

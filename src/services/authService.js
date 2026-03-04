@@ -33,8 +33,8 @@ class AuthService {
       throw new AuthenticationError('Credenciales inválidas');
     }
 
-    // Check if tenant is active
-    if (!user.tenant.is_active) {
+    // Check if tenant is active (skip for superadmin who has null tenant_id)
+    if (user.tenant_id && user.tenant && !user.tenant.is_active) {
       throw new AuthenticationError('Empresa inactiva');
     }
 
@@ -51,12 +51,14 @@ class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        tenant: {
+        tenant: user.tenant ? {
           id: user.tenant.id,
           name: user.tenant.name,
           business_name: user.tenant.business_name,
           plan: user.tenant.plan,
-        },
+          address: user.tenant.address,
+          phone: user.tenant.phone,
+        } : null,
       },
     };
   }
@@ -121,6 +123,8 @@ class AuthService {
             name: tenant.name,
             business_name: tenant.business_name,
             plan: tenant.plan,
+            address: tenant.address,
+            phone: tenant.phone,
           },
         },
       };
@@ -142,6 +146,16 @@ class AuthService {
       throw new AuthenticationError('Usuario no encontrado');
     }
 
+    // For superadmin users (no tenant), return null tenant
+    const tenantInfo = user.tenant ? {
+      id: user.tenant.id,
+      name: user.tenant.name,
+      business_name: user.tenant.business_name,
+      plan: user.tenant.plan,
+      address: user.tenant.address,
+      phone: user.tenant.phone,
+    } : null;
+
     return {
       id: user.id,
       email: user.email,
@@ -149,12 +163,7 @@ class AuthService {
       role: user.role,
       is_active: user.is_active,
       last_login: user.last_login,
-      tenant: {
-        id: user.tenant.id,
-        name: user.tenant.name,
-        business_name: user.tenant.business_name,
-        plan: user.tenant.plan,
-      },
+      tenant: tenantInfo,
     };
   }
 
