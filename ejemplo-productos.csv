@@ -1,0 +1,6 @@
+name,category,sku,barcode,price,cost,stock,min_stock,unit,type,description,image_url,expiry_date
+"Gaseosa 350ml","Bebidas","GAS350","7701234500012",2500,1500,100,10,"und","unit","Gaseosa sabor cola","https://ejemplo.com/img/gaseosa-350.jpg","2026-12-31"
+"Galletas Chocolate 6und","Snacks","GALCHOC6","7701234500013",3800,2200,80,15,"paq","unit","Paquete de galletas sabor chocolate 6 unidades","https://ejemplo.com/img/galletas-chocolate.jpg",
+"Arroz blanco 500g","Granos","ARZ500","7701234500014",3200,2500,50,10,"und","unit","Arroz blanco 500 gramos","https://ejemplo.com/img/arroz-500.jpg",
+"Aceite vegetal 900ml","Aceites","ACE900","7701234500015",8500,7000,40,8,"und","unit","Aceite de cocina vegetal 900ml","https://ejemplo.com/img/aceite-900.jpg","2027-01-01"
+"Leche entera 1L","Lácteos","LEC1L","7701234500016",4500,3500,30,5,"und","unit","Leche entera pasteurizada 1 litro","https://ejemplo.com/img/leche-1l.jpg","2025-12-31"

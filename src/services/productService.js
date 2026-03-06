@@ -334,6 +334,348 @@ class ProductService {
 
     return product;
   }
+
+  /**
+   * Bulk import products from CSV data
+   */
+  async bulkImportProducts(tenantId, productsData, userId) {
+    const results = {
+      success: [],
+      errors: [],
+      total: productsData.length,
+    };
+
+    // Get tenant to check product limit
+    const tenant = await Tenant.findByPk(tenantId);
+    const currentProductCount = await Product.count({ where: { tenant_id: tenantId } });
+    const availableSlots = tenant.max_products - currentProductCount;
+
+    if (availableSlots <= 0) {
+      throw new ValidationError(`Límite de productos alcanzado para el plan ${tenant.plan}`);
+    }
+
+    // Get all categories for this tenant to validate category_id
+    const categories = await Category.findAll({
+      where: { tenant_id: tenantId, is_active: true },
+      attributes: ['id', 'name'],
+    });
+    const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
+
+    // Get existing SKUs and barcodes to avoid duplicates
+    const existingProducts = await Product.findAll({
+      where: { tenant_id: tenantId },
+      attributes: ['sku', 'barcode'],
+    });
+    const existingSkus = new Set(existingProducts.map(p => p.sku?.toLowerCase()).filter(Boolean));
+    const existingBarcodes = new Set(existingProducts.map(p => p.barcode?.toLowerCase()).filter(Boolean));
+
+    // Process each product
+    for (let i = 0; i < productsData.length; i++) {
+      const row = productsData[i];
+      const rowNum = i + 2; // +2 because CSV has header and is 0-indexed
+
+      try {
+        // Validate required fields
+        if (!row.name || row.name.trim() === '') {
+          results.errors.push({ row: rowNum, error: 'Nombre requerido' });
+          continue;
+        }
+
+        // Validate and resolve category
+        let categoryId = null;
+        if (row.category) {
+          const categoryName = row.category.toLowerCase().trim();
+          if (categoryMap.has(categoryName)) {
+            categoryId = categoryMap.get(categoryName);
+          } else {
+            results.errors.push({ row: rowNum, error: `Categoría "${row.category}" no encontrada` });
+            continue;
+          }
+        }
+
+        // Check SKU uniqueness
+        const sku = row.sku ? row.sku.trim().toUpperCase() : null;
+        if (sku && existingSkus.has(sku.toLowerCase())) {
+          results.errors.push({ row: rowNum, error: `SKU "${sku}" ya existe` });
+          continue;
+        }
+
+        // Check barcode uniqueness
+        const barcode = row.barcode ? row.barcode.trim() : null;
+        if (barcode && existingBarcodes.has(barcode.toLowerCase())) {
+          results.errors.push({ row: rowNum, error: `Código de barras "${barcode}" ya existe` });
+          continue;
+        }
+
+        // Parse numeric fields
+        const price = row.price ? parseFloat(row.price) : 0;
+        const cost = row.cost ? parseFloat(row.cost) : 0;
+        const stock = row.stock ? parseFloat(row.stock) : 0;
+        const minStock = row.min_stock ? parseFloat(row.min_stock) : 0;
+
+        if (isNaN(price) || price < 0) {
+          results.errors.push({ row: rowNum, error: 'Precio inválido' });
+          continue;
+        }
+
+        if (isNaN(cost) || cost < 0) {
+          results.errors.push({ row: rowNum, error: 'Costo inválido' });
+          continue;
+        }
+
+        if (isNaN(stock) || stock < 0) {
+          results.errors.push({ row: rowNum, error: 'Stock inválido' });
+          continue;
+        }
+
+        // Create the product
+        const product = await Product.create({
+          tenant_id: tenantId,
+          category_id: categoryId,
+          name: row.name.trim(),
+          description: row.description ? row.description.trim() : null,
+          sku,
+          barcode,
+          price,
+          cost,
+          stock,
+          min_stock: minStock,
+          unit: row.unit || 'und',
+          type: row.type || 'unit',
+          image_url: row.image_url ? row.image_url.trim() : null,
+          expiry_date: row.expiry_date ? row.expiry_date.trim() : null,
+          is_active: true,
+        });
+
+        // Add to existing sets to prevent duplicates in same batch
+        if (sku) existingSkus.add(sku.toLowerCase());
+        if (barcode) existingBarcodes.add(barcode.toLowerCase());
+
+        results.success.push({
+          row: rowNum,
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+        });
+
+      } catch (error) {
+        results.errors.push({ row: rowNum, error: error.message });
+      }
+    }
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+
+    return results;
+  }
+
+  /**
+   * Bulk import products from CSV data with progress callback
+   */
+  async bulkImportProductsWithProgress(importId, tenantId, productsData, userId, onProgress) {
+    const results = {
+      success: [],
+      errors: [],
+      total: productsData.length,
+    };
+
+    // Get tenant to check product limit
+    const tenant = await Tenant.findByPk(tenantId);
+    const currentProductCount = await Product.count({ where: { tenant_id: tenantId } });
+    const availableSlots = tenant.max_products - currentProductCount;
+
+    if (availableSlots <= 0) {
+      throw new ValidationError(`Límite de productos alcanzado para el plan ${tenant.plan}`);
+    }
+
+    // Get all categories for this tenant to validate category_id
+    const categories = await Category.findAll({
+      where: { tenant_id: tenantId, is_active: true },
+      attributes: ['id', 'name'],
+    });
+    const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
+
+    // Get existing SKUs and barcodes to avoid duplicates
+    const existingProducts = await Product.findAll({
+      where: { tenant_id: tenantId },
+      attributes: ['sku', 'barcode'],
+    });
+    const existingSkus = new Set(existingProducts.map(p => p.sku?.toLowerCase()).filter(Boolean));
+    const existingBarcodes = new Set(existingProducts.map(p => p.barcode?.toLowerCase()).filter(Boolean));
+
+    // Process each product with progress updates
+    for (let i = 0; i < productsData.length; i++) {
+      const row = productsData[i];
+      const rowNum = i + 2;
+
+      try {
+        // Validate required fields
+        if (!row.name || row.name.trim() === '') {
+          results.errors.push({ row: rowNum, error: 'Nombre requerido' });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        // Validate and resolve category
+        let categoryId = null;
+        if (row.category) {
+          const categoryName = row.category.toLowerCase().trim();
+          if (categoryMap.has(categoryName)) {
+            categoryId = categoryMap.get(categoryName);
+          } else {
+            results.errors.push({ row: rowNum, error: `Categoría "${row.category}" no encontrada` });
+            onProgress({
+              status: 'processing',
+              progress: Math.round(((i + 1) / productsData.length) * 100),
+              processed: i + 1,
+              successCount: results.success.length,
+              errorCount: results.errors.length,
+              message: `Procesando fila ${i + 1} de ${productsData.length}...`
+            });
+            continue;
+          }
+        }
+
+        // Check SKU uniqueness
+        const sku = row.sku ? row.sku.trim().toUpperCase() : null;
+        if (sku && existingSkus.has(sku.toLowerCase())) {
+          results.errors.push({ row: rowNum, error: `SKU "${sku}" ya existe` });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        // Check barcode uniqueness
+        const barcode = row.barcode ? row.barcode.trim() : null;
+        if (barcode && existingBarcodes.has(barcode.toLowerCase())) {
+          results.errors.push({ row: rowNum, error: `Código de barras "${barcode}" ya existe` });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        // Parse numeric fields
+        const price = row.price ? parseFloat(row.price) : 0;
+        const cost = row.cost ? parseFloat(row.cost) : 0;
+        const stock = row.stock ? parseFloat(row.stock) : 0;
+        const minStock = row.min_stock ? parseFloat(row.min_stock) : 0;
+
+        if (isNaN(price) || price < 0) {
+          results.errors.push({ row: rowNum, error: 'Precio inválido' });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        if (isNaN(cost) || cost < 0) {
+          results.errors.push({ row: rowNum, error: 'Costo inválido' });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        if (isNaN(stock) || stock < 0) {
+          results.errors.push({ row: rowNum, error: 'Stock inválido' });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        // Create the product
+        const product = await Product.create({
+          tenant_id: tenantId,
+          category_id: categoryId,
+          name: row.name.trim(),
+          description: row.description ? row.description.trim() : null,
+          sku,
+          barcode,
+          price,
+          cost,
+          stock,
+          min_stock: minStock,
+          unit: row.unit || 'und',
+          type: row.type || 'unit',
+          image_url: row.image_url ? row.image_url.trim() : null,
+          expiry_date: row.expiry_date ? row.expiry_date.trim() : null,
+          is_active: true,
+        });
+
+        // Add to existing sets to prevent duplicates in same batch
+        if (sku) existingSkus.add(sku.toLowerCase());
+        if (barcode) existingBarcodes.add(barcode.toLowerCase());
+
+        results.success.push({
+          row: rowNum,
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+        });
+
+        // Emit progress update
+        onProgress({
+          status: 'processing',
+          progress: Math.round(((i + 1) / productsData.length) * 100),
+          processed: i + 1,
+          successCount: results.success.length,
+          errorCount: results.errors.length,
+          message: `Procesando fila ${i + 1} de ${productsData.length}...`
+        });
+
+      } catch (error) {
+        results.errors.push({ row: rowNum, error: error.message });
+        onProgress({
+          status: 'processing',
+          progress: Math.round(((i + 1) / productsData.length) * 100),
+          processed: i + 1,
+          successCount: results.success.length,
+          errorCount: results.errors.length,
+          message: `Procesando fila ${i + 1} de ${productsData.length}...`
+        });
+      }
+    }
+
+    // Invalidate products list cache
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+
+    return results;
+  }
 }
 
 module.exports = new ProductService();

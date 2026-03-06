@@ -78,8 +78,18 @@ class CacheService {
    * @returns {Promise<object|null>} - Valor cacheado o null
    */
   async get(key) {
+    // Si no está conectado, intentar conectar con timeout
     if (!this.isConnected || !this.client) {
-      await this.connect();
+      try {
+        // Timeout de 2 segundos para la conexión
+        await Promise.race([
+          this.connect(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000))
+        ]);
+      } catch (error) {
+        console.warn('Redis: Cache unavailable, skipping cache read');
+        return null;
+      }
     }
 
     if (!this.isConnected) {
@@ -108,8 +118,18 @@ class CacheService {
    * @param {number} ttl - Tiempo de vida en segundos (opcional)
    */
   async set(key, value, ttl = null) {
+    // Si no está conectado, intentar conectar con timeout
     if (!this.isConnected || !this.client) {
-      await this.connect();
+      try {
+        // Timeout de 2 segundos para la conexión
+        await Promise.race([
+          this.connect(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000))
+        ]);
+      } catch (error) {
+        console.warn('Redis: Cache unavailable, skipping cache write');
+        return;
+      }
     }
 
     if (!this.isConnected) {

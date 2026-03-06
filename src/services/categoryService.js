@@ -37,7 +37,10 @@ class CategoryService {
   async getCategories(tenantId, { page = 1, limit = 20, is_active } = {}) {
     const where = { tenant_id: tenantId };
 
-    if (is_active !== undefined) {
+    // By default, only show active categories
+    if (is_active === undefined) {
+      where.is_active = true;
+    } else if (is_active !== '') {
       where.is_active = is_active === 'true';
     }
 
@@ -108,6 +111,11 @@ class CategoryService {
       throw new NotFoundError('Categoría no encontrada');
     }
 
+    // Check if category is already inactive
+    if (!category.is_active) {
+      return { message: 'Categoría ya estaba eliminada' };
+    }
+
     // Check if category has products
     const productCount = await Product.count({
       where: { category_id: categoryId, tenant_id: tenantId },
@@ -118,6 +126,7 @@ class CategoryService {
     }
 
     await category.update({ is_active: false });
+    
     return { message: 'Categoría eliminada correctamente' };
   }
 }

@@ -18,17 +18,25 @@ const getUserCacheKey = (userId) => `auth:user:${userId}`;
 
 const authMiddleware = async (req, res, next) => {
   try {
+    console.log('[AUTH DEBUG] Petición:', req.method, req.path);
+    console.log('[AUTH DEBUG] Headers:', req.headers);
+    
     // Get token from header
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[AUTH DEBUG] ERROR: No hay token');
       throw new AuthenticationError('No se proporcionó token de autenticación');
     }
+    
+    console.log('[AUTH DEBUG] Token encontrado');
     
     const token = authHeader.split(' ')[1];
     
     // Verify token
+    console.log('[AUTH DEBUG] Verificando token...');
     const decoded = jwt.verify(token, env.jwt.secret);
+    console.log('[AUTH DEBUG] Token válido. UserId:', decoded.userId);
     
     // Try to get user from cache first
     const cacheKey = getUserCacheKey(decoded.userId);
@@ -46,6 +54,7 @@ const authMiddleware = async (req, res, next) => {
         throw new AuthenticationError('Usuario inactivo');
       }
       
+      console.log('[AUTH DEBUG] Usuario encontrado en DB:', user.id);
       userData = {
         id: user.id,
         userId: user.id,
@@ -75,8 +84,10 @@ const authMiddleware = async (req, res, next) => {
       isSuperadmin: userData.isSuperadmin,
     };
     
+    console.log('[AUTH DEBUG] Usuario autenticado exitosamente. Pasando al siguiente middleware...');
     next();
   } catch (error) {
+    console.log('[AUTH DEBUG] ERROR en autenticación:', error.message);
     if (error.name === 'JsonWebTokenError') {
       next(new AuthenticationError('Token inválido'));
     } else if (error.name === 'TokenExpiredError') {
