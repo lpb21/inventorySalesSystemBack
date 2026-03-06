@@ -12,12 +12,18 @@ const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
 const { validate } = require('../../middlewares/validationMiddleware');
 const { productSchema, updateProductSchema } = require('../../utils/validators');
+const fs = require('fs');
 
 // Configure multer for CSV file upload
+const uploadsDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     console.log('[MULTER DEBUG] Configurando destino del archivo');
-    cb(null, path.join(__dirname, '../../uploads'));
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
