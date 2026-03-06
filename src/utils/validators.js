@@ -90,6 +90,11 @@ const categorySchema = Joi.object({
   is_active: optionalBoolean.default(true),
 });
 
+const updateCategorySchema = categorySchema.fork(
+  ['name'],
+  (schema) => schema.optional()
+);
+
 // Product schemas
 const productSchema = Joi.object({
   name: requiredString.max(255),
@@ -165,6 +170,7 @@ module.exports = {
   
   // Categories
   categorySchema,
+  updateCategorySchema,
   
   // Products
   productSchema,

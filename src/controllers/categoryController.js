@@ -11,8 +11,12 @@ class CategoryController {
    * List all categories
    */
   getCategories = asyncHandler(async (req, res, next) => {
-    const { page = 1, limit = 20 } = req.query;
-    const result = await categoryService.getCategories(req.tenantId, { page, limit });
+    const { page = 1, limit = 20, include_inactive } = req.query;
+
+    // include_inactive=true → only inactive (is_active='false'), otherwise only active
+    const is_active = include_inactive === 'true' ? 'false' : 'true';
+
+    const result = await categoryService.getCategories(req.tenantId, { page, limit, is_active });
     
     res.status(200).json(formatResponse(result));
   });
