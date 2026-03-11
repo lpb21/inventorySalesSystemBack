@@ -8,10 +8,14 @@ const reportController = require('../../controllers/reportController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
+const { reportLimiter } = require('../../middlewares/rateLimitMiddleware');
 
 // Apply auth and tenant middleware to all routes
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Apply report-specific rate limiting
+router.use(reportLimiter);
 
 // Report routes
 router.get('/dashboard', permissionMiddleware('reports:read'), reportController.getDashboard);

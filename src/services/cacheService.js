@@ -1,9 +1,10 @@
 /**
  * Cache Service
- * Maneja el caché con Redis para optimizar consultas a la base de datos
+ * Maneja el cache con Redis para optimizar consultas a la base de datos
  */
 const redis = require('redis');
 const env = require('../config/env');
+const logger = require('../utils/logger');
 
 class CacheService {
   constructor() {
@@ -13,7 +14,7 @@ class CacheService {
   }
 
   /**
-   * Inicializa la conexión con Redis
+   * Inicializa la conexion con Redis
    */
   async connect() {
     if (this.client && this.isConnected) {
@@ -21,7 +22,6 @@ class CacheService {
     }
 
     if (this.isConnecting) {
-      // Esperar a que termine la conexión en progreso
       return new Promise((resolve) => {
         const checkConnection = setInterval(() => {
           if (this.isConnected) {
@@ -40,32 +40,33 @@ class CacheService {
         socket: {
           reconnectStrategy: (retries) => {
             if (retries > 3) {
-              console.warn('Redis: Max reconnection attempts reached');
+              logger.warn('redis', 'Max reconnection attempts reached');
               return new Error('Redis connection failed');
             }
+
             return Math.min(retries * 100, 3000);
           },
         },
       });
 
       this.client.on('error', (err) => {
-        console.error('Redis Client Error:', err.message);
+        logger.error('redis', 'Client error', { error: err.message });
         this.isConnected = false;
       });
 
       this.client.on('connect', () => {
-        console.log('Redis: Connected successfully');
+        logger.info('redis', 'Connected', { url: env.redis.url });
         this.isConnected = true;
       });
 
       this.client.on('disconnect', () => {
-        console.log('Redis: Disconnected');
+        logger.warn('redis', 'Disconnected');
         this.isConnected = false;
       });
 
       await this.client.connect();
     } catch (error) {
-      console.error('Redis: Failed to connect:', error.message);
+      logger.error('redis', 'Failed to connect', { error: error.message, url: env.redis.url });
       this.isConnected = false;
     } finally {
       this.isConnecting = false;
@@ -73,67 +74,74 @@ class CacheService {
   }
 
   /**
-   * Obtiene un valor del caché
-   * @param {string} key - Clave del caché
+   * Obtiene un valor del cache
+   * @param {string} key - Clave del cache
    * @returns {Promise<object|null>} - Valor cacheado o null
    */
   async get(key) {
-    // Si no está conectado, intentar conectar con timeout
+    const result = await this.getWithMeta(key);
+    return result.value;
+  }
+
+  /**
+   * Obtiene un valor del cache con metadatos del resultado
+   * @param {string} key - Clave del cache
+   * @returns {Promise<{value: object|null, hit: boolean}>}
+   */
+  async getWithMeta(key) {
     if (!this.isConnected || !this.client) {
       try {
-        // Timeout de 2 segundos para la conexión
         await Promise.race([
           this.connect(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000)),
         ]);
       } catch (error) {
-        console.warn('Redis: Cache unavailable, skipping cache read');
-        return null;
+        logger.warn('redis', 'Cache unavailable, skipping read', { key, reason: error.message });
+        return { value: null, hit: false };
       }
     }
 
     if (!this.isConnected) {
-      console.warn('Redis: Cache unavailable, skipping cache read');
-      return null;
+      logger.warn('redis', 'Cache unavailable, skipping read', { key });
+      return { value: null, hit: false };
     }
 
     try {
       const value = await this.client.get(key);
       if (value) {
-        console.log(`Redis: Cache HIT for key: ${key}`);
-        return JSON.parse(value);
+        logger.info('redis', 'Cache hit', { key });
+        return { value: JSON.parse(value), hit: true };
       }
-      console.log(`Redis: Cache MISS for key: ${key}`);
-      return null;
+
+      logger.info('redis', 'Cache miss', { key });
+      return { value: null, hit: false };
     } catch (error) {
-      console.error('Redis: Error getting cache:', error.message);
-      return null;
+      logger.error('redis', 'Error reading cache', { key, error: error.message });
+      return { value: null, hit: false };
     }
   }
 
   /**
-   * Guarda un valor en el caché
-   * @param {string} key - Clave del caché
+   * Guarda un valor en el cache
+   * @param {string} key - Clave del cache
    * @param {object} value - Valor a guardar
    * @param {number} ttl - Tiempo de vida en segundos (opcional)
    */
   async set(key, value, ttl = null) {
-    // Si no está conectado, intentar conectar con timeout
     if (!this.isConnected || !this.client) {
       try {
-        // Timeout de 2 segundos para la conexión
         await Promise.race([
           this.connect(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000)),
         ]);
       } catch (error) {
-        console.warn('Redis: Cache unavailable, skipping cache write');
+        logger.warn('redis', 'Cache unavailable, skipping write', { key, reason: error.message });
         return;
       }
     }
 
     if (!this.isConnected) {
-      console.warn('Redis: Cache unavailable, skipping cache write');
+      logger.warn('redis', 'Cache unavailable, skipping write', { key });
       return;
     }
 
@@ -143,15 +151,15 @@ class CacheService {
       await this.client.set(key, JSON.stringify(value), {
         EX: expirationTime,
       });
-      console.log(`Redis: Cache SET for key: ${key} (TTL: ${expirationTime}s)`);
+      logger.info('redis', 'Cache set', { key, ttl: `${expirationTime}s` });
     } catch (error) {
-      console.error('Redis: Error setting cache:', error.message);
+      logger.error('redis', 'Error writing cache', { key, error: error.message });
     }
   }
 
   /**
-   * Invalidar claves de caché por patrón (using SCAN instead of KEYS for production safety)
-   * @param {string} pattern - Patrón de las claves a invalidar
+   * Invalidar claves de cache por patron usando SCAN
+   * @param {string} pattern - Patron de las claves a invalidar
    */
   async invalidate(pattern) {
     if (!this.isConnected || !this.client) {
@@ -160,21 +168,22 @@ class CacheService {
 
     try {
       let deletedCount = 0;
-      // Use SCAN iterator instead of KEYS (non-blocking)
+
       for await (const key of this.client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
         await this.client.del(key);
         deletedCount++;
       }
+
       if (deletedCount > 0) {
-        console.log(`Redis: Cache invalidated for pattern: ${pattern} (${deletedCount} keys)`);
+        logger.info('redis', 'Cache invalidated by pattern', { pattern, deletedCount });
       }
     } catch (error) {
-      console.error('Redis: Error invalidating cache:', error.message);
+      logger.error('redis', 'Error invalidating by pattern', { pattern, error: error.message });
     }
   }
 
   /**
-   * Invalidar múltiples claves específicas
+   * Invalidar multiples claves especificas
    * @param {string[]} keys - Array de claves a invalidar
    */
   async invalidateKeys(keys) {
@@ -184,70 +193,70 @@ class CacheService {
 
     try {
       await this.client.del(keys);
-      console.log(`Redis: Cache invalidated for keys: ${keys.join(', ')}`);
+      logger.info('redis', 'Cache invalidated by keys', { keys: keys.join(', ') });
     } catch (error) {
-      console.error('Redis: Error invalidating cache keys:', error.message);
+      logger.error('redis', 'Error invalidating keys', { keys: keys.join(', '), error: error.message });
     }
   }
 
   /**
-   * Genera una clave de caché para balance de cliente
+   * Genera una clave de cache para balance de cliente
    */
   getCustomerBalanceKey(tenantId, customerId) {
     return `customer:balance:${tenantId}:${customerId}`;
   }
 
   /**
-   * Genera una clave de caché para ventas a crédito de cliente
+   * Genera una clave de cache para ventas a credito de cliente
    */
   getCustomerCreditSalesKey(tenantId, customerId, page = 1, limit = 20) {
     return `customer:credit-sales:${tenantId}:${customerId}:${page}:${limit}`;
   }
 
   /**
-   * Genera el patrón para invalidar todas las ventas a crédito de un cliente
+   * Genera el patron para invalidar todas las ventas a credito de un cliente
    */
   getCustomerCreditSalesPattern(tenantId, customerId) {
     return `customer:credit-sales:${tenantId}:${customerId}:*`;
   }
 
   /**
-   * Genera una clave de caché para la lista de clientes con crédito (deudores)
+   * Genera una clave de cache para la lista de clientes con credito
    */
   getCustomersWithCreditKey(tenantId, page = 1, limit = 20) {
     return `customer:with-credit:${tenantId}:${page}:${limit}`;
   }
 
   /**
-   * Genera el patrón para invalidar todas las listas de deudores de un inquilino
+   * Genera el patron para invalidar todas las listas de deudores de un inquilino
    */
   getCustomersWithCreditPattern(tenantId) {
     return `customer:with-credit:${tenantId}:*`;
   }
 
   /**
-   * Genera una clave de caché para la lista de productos de un tenant
+   * Genera una clave de cache para la lista de productos de un tenant
    */
   getProductsKey(tenantId, page = 1, limit = 20, filters = '') {
     return `products:list:${tenantId}:${page}:${limit}:${filters}`;
   }
 
   /**
-   * Genera el patrón para invalidar todas las listas de productos de un tenant
+   * Genera el patron para invalidar todas las listas de productos de un tenant
    */
   getProductsPattern(tenantId) {
     return `products:list:${tenantId}:*`;
   }
 
   /**
-   * Genera una clave de caché para el dashboard de un tenant
+   * Genera una clave de cache para el dashboard de un tenant
    */
   getDashboardKey(tenantId) {
     return `dashboard:${tenantId}`;
   }
 
   /**
-   * Cierra la conexión con Redis
+   * Cierra la conexion con Redis
    */
   async disconnect() {
     if (this.client) {

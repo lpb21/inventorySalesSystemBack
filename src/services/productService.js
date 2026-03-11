@@ -3,11 +3,12 @@
  * Handles product business logic
  */
 const { Op } = require('sequelize');
-const { Product, Category, InventoryMovement, Tenant } = require('../models');
+const { Product, Category, InventoryMovement, Tenant, Supplier } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
 const cacheService = require('./cacheService');
+const supplierService = require('./supplierService');
 
 const PRODUCTS_CACHE_TTL = 60; // 1 minute
 
@@ -25,12 +26,25 @@ class ProductService {
     }
 
     // Check category exists and belongs to tenant
-    const category = await Category.findOne({
-      where: { id: productData.category_id, tenant_id: tenantId },
-    });
+    if (productData.category_id) {
+      const category = await Category.findOne({
+        where: { id: productData.category_id, tenant_id: tenantId },
+      });
 
-    if (!category) {
-      throw new NotFoundError('Categoría no encontrada');
+      if (!category) {
+        throw new NotFoundError('Categoría no encontrada');
+      }
+    }
+
+    // Check supplier exists and belongs to tenant
+    if (productData.supplier_id) {
+      const supplier = await Supplier.findOne({
+        where: { id: productData.supplier_id, tenant_id: tenantId, is_active: true },
+      });
+
+      if (!supplier) {
+        throw new NotFoundError('Proveedor no encontrado');
+      }
     }
 
     // Check unique constraints (sku, barcode)
@@ -65,7 +79,10 @@ class ProductService {
     });
 
     // Invalidate products list cache
-    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
+    console.log('🗑️  [CACHE CLEAR] Invalidating products cache after creation');
+    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
+      console.warn('❌ [CACHE ERROR] Failed to invalidate products cache:', err.message);
+    });
 
     return product;
   }
@@ -74,58 +91,152 @@ class ProductService {
    * Update product
    */
   async updateProduct(tenantId, productId, productData, userId) {
-    const product = await Product.findOne({
-      where: { id: productId, tenant_id: tenantId },
-    });
-
-    if (!product) {
-      throw new NotFoundError('Producto no encontrado');
-    }
-
-    // Store old data for audit
-    const oldData = {
-      name: product.name,
-      sku: product.sku,
-      barcode: product.barcode,
-      price: product.price,
-      cost: product.cost,
-      stock: product.stock,
-    };
-
-    // Check unique constraints if being updated
-    if (productData.sku && productData.sku !== product.sku) {
-      const existingSku = await Product.findOne({
-        where: { tenant_id: tenantId, sku: productData.sku, id: { [Op.ne]: productId } },
+    try {
+      console.log('🔄 [PRODUCT UPDATE] Starting update for product:', productId);
+      console.log('🔄 [PRODUCT UPDATE] Received data:', JSON.stringify(productData, null, 2));
+      
+      const product = await Product.findOne({
+        where: { id: productId, tenant_id: tenantId },
       });
-      if (existingSku) {
-        throw new ValidationError('El SKU ya está en uso');
-      }
-    }
 
-    if (productData.barcode && productData.barcode !== product.barcode) {
-      const existingBarcode = await Product.findOne({
-        where: { tenant_id: tenantId, barcode: productData.barcode, id: { [Op.ne]: productId } },
+      if (!product) {
+        console.log('❌ [PRODUCT UPDATE] Product not found:', productId);
+        throw new NotFoundError('Producto no encontrado');
+      }
+
+      console.log('✅ [PRODUCT UPDATE] Product found:', product.name);
+
+      // Define allowed fields for update (exclude system fields)
+      const allowedFields = [
+        'name', 'description', 'sku', 'barcode', 'price', 'cost', 
+        'stock', 'min_stock', 'unit', 'type', 'image_url', 
+        'expiry_date', 'is_active', 'category_id', 'supplier_id'
+      ];
+
+      // Filter productData to only include allowed fields
+      const filteredData = {};
+      Object.keys(productData).forEach(key => {
+        if (allowedFields.includes(key) && productData[key] !== undefined) {
+          let value = productData[key];
+          
+          // Handle special cases for date fields
+          if (key === 'expiry_date') {
+            // Convert empty strings to null for date fields
+            if (value === '' || value === 'Invalid date' || value === null) {
+              value = null;
+            }
+          }
+          
+          // Handle other null/empty cases
+          if (key === 'image_url' && value === '') {
+            value = null;
+          }
+          
+          filteredData[key] = value;
+        }
       });
-      if (existingBarcode) {
-        throw new ValidationError('El código de barras ya está en uso');
+
+      console.log('🔧 [PRODUCT UPDATE] Filtered fields:', Object.keys(filteredData));
+      console.log('🔧 [PRODUCT UPDATE] Filtered data:', JSON.stringify(filteredData, null, 2));
+
+      // Check category exists and belongs to tenant
+      if (filteredData.category_id && filteredData.category_id !== product.category_id) {
+        console.log('🔍 [PRODUCT UPDATE] Checking category:', filteredData.category_id);
+        const category = await Category.findOne({
+          where: { id: filteredData.category_id, tenant_id: tenantId },
+        });
+
+        if (!category) {
+          console.log('❌ [PRODUCT UPDATE] Category not found:', filteredData.category_id);
+          throw new NotFoundError('Categoría no encontrada');
+        }
+        console.log('✅ [PRODUCT UPDATE] Category validated:', category.name);
       }
+
+      // Check supplier exists and belongs to tenant
+      if (filteredData.supplier_id && filteredData.supplier_id !== product.supplier_id) {
+        console.log('🔍 [PRODUCT UPDATE] Checking supplier:', filteredData.supplier_id);
+        const supplier = await Supplier.findOne({
+          where: { id: filteredData.supplier_id, tenant_id: tenantId, is_active: true },
+        });
+
+        if (!supplier) {
+          console.log('❌ [PRODUCT UPDATE] Supplier not found:', filteredData.supplier_id);
+          throw new NotFoundError('Proveedor no encontrado');
+        }
+        console.log('✅ [PRODUCT UPDATE] Supplier validated:', supplier.name);
+      }
+
+      // Store old data for audit
+      const oldData = {
+        name: product.name,
+        sku: product.sku,
+        barcode: product.barcode,
+        price: product.price,
+        cost: product.cost,
+        stock: product.stock,
+      };
+
+      console.log('💾 [PRODUCT UPDATE] Old data stored for audit');
+
+      // Check unique constraints if being updated
+      if (filteredData.sku && filteredData.sku !== product.sku) {
+        console.log('🔍 [PRODUCT UPDATE] Checking SKU uniqueness:', filteredData.sku);
+        const existingSku = await Product.findOne({
+          where: { tenant_id: tenantId, sku: filteredData.sku, id: { [Op.ne]: productId } },
+        });
+        if (existingSku) {
+          console.log('❌ [PRODUCT UPDATE] SKU already in use:', filteredData.sku);
+          throw new ValidationError('El SKU ya está en uso');
+        }
+        console.log('✅ [PRODUCT UPDATE] SKU is unique');
+      }
+
+      if (filteredData.barcode && filteredData.barcode !== product.barcode) {
+        console.log('🔍 [PRODUCT UPDATE] Checking barcode uniqueness:', filteredData.barcode);
+        const existingBarcode = await Product.findOne({
+          where: { tenant_id: tenantId, barcode: filteredData.barcode, id: { [Op.ne]: productId } },
+        });
+        if (existingBarcode) {
+          console.log('❌ [PRODUCT UPDATE] Barcode already in use:', filteredData.barcode);
+          throw new ValidationError('El código de barras ya está en uso');
+        }
+        console.log('✅ [PRODUCT UPDATE] Barcode is unique');
+      }
+
+      console.log('💾 [PRODUCT UPDATE] Starting database update...');
+      await product.update(filteredData);
+      console.log('✅ [PRODUCT UPDATE] Database update completed');
+
+      // Log audit for product update
+      await auditService.logProductUpdate({
+        tenantId,
+        userId,
+        product,
+        oldData,
+        newData: filteredData,
+      });
+
+      console.log('📝 [PRODUCT UPDATE] Audit log completed');
+
+      // Invalidate products list cache
+      console.log('🗑️  [CACHE CLEAR] Invalidating products cache after update');
+      cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
+        console.warn('❌ [CACHE ERROR] Failed to invalidate products cache:', err.message);
+      });
+
+      console.log('✅ [PRODUCT UPDATE] Update completed successfully');
+      return product;
+
+    } catch (error) {
+      console.error('❌ [PRODUCT UPDATE] Error during update process:');
+      console.error('❌ [PRODUCT UPDATE] Error name:', error.name);
+      console.error('❌ [PRODUCT UPDATE] Error message:', error.message);
+      console.error('❌ [PRODUCT UPDATE] Error stack:', error.stack);
+      
+      // Re-throw the error so it's handled by the error middleware
+      throw error;
     }
-
-    await product.update(productData);
-
-    // Log audit for product update
-    await auditService.logProductUpdate({
-      tenantId,
-      userId,
-      product,
-      oldData,
-      newData: productData,
-    });
-
-    // Invalidate products list cache
-    cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch(() => {});
-
-    return product;
   }
 
   /**
@@ -170,8 +281,17 @@ class ProductService {
     const cacheKey = cacheService.getProductsKey(tenantId, page, limit, filterKey);
 
     // Try cache first
-    const cached = await cacheService.get(cacheKey);
-    if (cached) return cached;
+    try {
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        console.log('🚀 [CACHE HIT] Products data loaded from Redis');
+        return cached;
+      } else {
+        console.log('💾 [CACHE MISS] Products data will be loaded from database');
+      }
+    } catch (error) {
+      console.warn('⚠️  [CACHE ERROR] Redis unavailable for products:', error.message);
+    }
 
     const where = { tenant_id: tenantId };
     
@@ -193,7 +313,10 @@ class ProductService {
 
     const { count, rows } = await Product.findAndCountAll({
       where,
-      include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'icon'] }],
+      include: [
+        { model: Category, as: 'category', attributes: ['id', 'name', 'icon'] },
+        { model: Supplier, as: 'supplier', attributes: ['id', 'name', 'contact_name'] }
+      ],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: getPaginationSkip(page, limit),
@@ -361,6 +484,13 @@ class ProductService {
     });
     const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
 
+    // Get all suppliers for this tenant to validate supplier_id
+    const suppliers = await Supplier.findAll({
+      where: { tenant_id: tenantId, is_active: true },
+      attributes: ['id', 'name'],
+    });
+    const supplierMap = new Map(suppliers.map(s => [s.name.toLowerCase(), s.id]));
+
     // Get existing SKUs and barcodes to avoid duplicates
     const existingProducts = await Product.findAll({
       where: { tenant_id: tenantId },
@@ -390,6 +520,27 @@ class ProductService {
           } else {
             results.errors.push({ row: rowNum, error: `Categoría "${row.category}" no encontrada` });
             continue;
+          }
+        }
+
+        // Validate and resolve supplier
+        let supplierId = null;
+        if (row.supplier) {
+          const supplierName = row.supplier.toLowerCase().trim();
+          if (supplierMap.has(supplierName)) {
+            supplierId = supplierMap.get(supplierName);
+          } else {
+            // Try to create supplier automatically
+            try {
+              const newSupplier = await supplierService.findOrCreateSupplierByName(tenantId, row.supplier);
+              if (newSupplier) {
+                supplierId = newSupplier.id;
+                supplierMap.set(supplierName, supplierId); // Add to map for future rows
+              }
+            } catch (error) {
+              results.errors.push({ row: rowNum, error: `Error creando proveedor "${row.supplier}": ${error.message}` });
+              continue;
+            }
           }
         }
 
@@ -432,6 +583,7 @@ class ProductService {
         const product = await Product.create({
           tenant_id: tenantId,
           category_id: categoryId,
+          supplier_id: supplierId,
           name: row.name.trim(),
           description: row.description ? row.description.trim() : null,
           sku,
@@ -495,6 +647,13 @@ class ProductService {
     });
     const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
 
+    // Get all suppliers for this tenant to validate supplier_id
+    const suppliers = await Supplier.findAll({
+      where: { tenant_id: tenantId, is_active: true },
+      attributes: ['id', 'name'],
+    });
+    const supplierMap = new Map(suppliers.map(s => [s.name.toLowerCase(), s.id]));
+
     // Get existing SKUs and barcodes to avoid duplicates
     const existingProducts = await Product.findAll({
       where: { tenant_id: tenantId },
@@ -540,6 +699,35 @@ class ProductService {
               message: `Procesando fila ${i + 1} de ${productsData.length}...`
             });
             continue;
+          }
+        }
+
+        // Validate and resolve supplier
+        let supplierId = null;
+        if (row.supplier) {
+          const supplierName = row.supplier.toLowerCase().trim();
+          if (supplierMap.has(supplierName)) {
+            supplierId = supplierMap.get(supplierName);
+          } else {
+            // Try to create supplier automatically
+            try {
+              const newSupplier = await supplierService.findOrCreateSupplierByName(tenantId, row.supplier);
+              if (newSupplier) {
+                supplierId = newSupplier.id;
+                supplierMap.set(supplierName, supplierId); // Add to map for future rows
+              }
+            } catch (error) {
+              results.errors.push({ row: rowNum, error: `Error creando proveedor "${row.supplier}": ${error.message}` });
+              onProgress({
+                status: 'processing',
+                progress: Math.round(((i + 1) / productsData.length) * 100),
+                processed: i + 1,
+                successCount: results.success.length,
+                errorCount: results.errors.length,
+                message: `Procesando fila ${i + 1} de ${productsData.length}...`
+              });
+              continue;
+            }
           }
         }
 
@@ -622,6 +810,7 @@ class ProductService {
         const product = await Product.create({
           tenant_id: tenantId,
           category_id: categoryId,
+          supplier_id: supplierId,
           name: row.name.trim(),
           description: row.description ? row.description.trim() : null,
           sku,

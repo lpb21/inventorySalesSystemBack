@@ -10,6 +10,7 @@ const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
 const { validate } = require('../../middlewares/validationMiddleware');
 const { categorySchema, updateCategorySchema } = require('../../utils/validators');
+const { writeOperationsLimiter } = require('../../middlewares/rateLimitMiddleware');
 
 // Apply auth and tenant middleware to all routes
 router.use(authMiddleware);
@@ -17,9 +18,9 @@ router.use(tenantMiddleware);
 
 // Category routes
 router.get('/', permissionMiddleware('categories:read'), categoryController.getCategories);
-router.post('/', permissionMiddleware('categories:create'), validate(categorySchema), categoryController.createCategory);
+router.post('/', writeOperationsLimiter, permissionMiddleware('categories:create'), validate(categorySchema), categoryController.createCategory);
 router.get('/:id', permissionMiddleware('categories:read'), categoryController.getCategoryById);
-router.put('/:id', permissionMiddleware('categories:update'), validate(updateCategorySchema), categoryController.updateCategory);
-router.delete('/:id', permissionMiddleware('categories:delete'), categoryController.deleteCategory);
+router.put('/:id', writeOperationsLimiter, permissionMiddleware('categories:update'), validate(updateCategorySchema), categoryController.updateCategory);
+router.delete('/:id', writeOperationsLimiter, permissionMiddleware('categories:delete'), categoryController.deleteCategory);
 
 module.exports = router;

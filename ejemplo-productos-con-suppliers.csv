@@ -1,0 +1,11 @@
+name,category,supplier,description,sku,barcode,price,cost,stock,min_stock,unit,type,image_url,expiry_date
+"Monitor Samsung 24 pulgadas","Tecnología","Samsung Electronics","Monitor LED 24 pulgadas Full HD","MON-SAM-24","7891234567890",299.99,220.00,15,5,"und","unit","","2026-12-31"
+"Laptop HP Pavilion","Tecnología","HP Inc","Laptop HP Pavilion 15 pulgadas Intel i5","LAP-HP-PAV15","7890123456789",899.99,650.00,8,3,"und","unit","","2026-12-31"
+"Aceite Motor 5W30","Automotriz","Castrol","Aceite motor sintético 5W30 1 litro","ACE-CAS-5W30","1234567890123",12.50,8.75,50,10,"l","unit","","2025-06-30"
+"Filtro Aire Corolla","Automotriz","Toyota Parts","Filtro aire Toyota Corolla 2020-2023","FIL-TOY-COR20","9876543210987",25.00,18.00,20,5,"und","unit","","2027-03-15"
+"Café Premium Grano","Alimentos","Nescafé","Café premium en grano 500g","CAF-NES-PREM","4567890123456",8.99,6.45,100,25,"kg","weight","","2024-08-20"
+"Pan Integral Rebanado","Alimentos","Bimbo","Pan integral rebanado 680g","PAN-BIM-INT","3456789012345",3.50,2.10,25,10,"und","unit","","2024-04-15"
+"Shampoo Anticaspa","Cuidado Personal","Head & Shoulders","Shampoo anticaspa 400ml","SHA-H&S-ANT","8901234567890",12.99,8.50,30,8,"ml","unit","","2025-10-30"
+"Crema Facial Neutrogena","Cuidado Personal","Neutrogena","Crema facial hidratante 75ml","CRE-NEU-FAC","5678901234567",18.75,12.30,15,5,"ml","unit","","2025-12-31"
+"Detergente Líquido","Limpieza","","Detergente líquido para ropa 3L","DET-LIQ-3L","6789012345678",9.50,6.20,40,12,"l","unit","","2026-02-28"
+"Papel Higiénico 12 rollos","Limpieza","Familia","Papel higiénico doble hoja x 12 rollos","PAP-FAM-12R","7890123456780",15.99,10.80,25,8,"paq","unit","","2025-09-15"

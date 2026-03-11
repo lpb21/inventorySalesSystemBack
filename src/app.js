@@ -8,6 +8,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const env = require('./config/env');
 const errorMiddleware = require('./middlewares/errorMiddleware');
+const { generalLimiter, rateLimitLogger } = require('./middlewares/rateLimitMiddleware');
 const routes = require('./routes');
 
 const app = express();
@@ -16,6 +17,10 @@ const app = express();
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+
+// Rate limiting (aplicar antes que otros middlewares)
+app.use(rateLimitLogger);
+app.use(generalLimiter);
 
 // CORS configuration
 app.use(cors({

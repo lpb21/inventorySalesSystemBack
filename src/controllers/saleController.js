@@ -11,7 +11,12 @@ class SaleController {
    * List all sales
    */
   getSales = asyncHandler(async (req, res, next) => {
-    const result = await saleService.getSales(req.tenantId, req.query);
+    const result = await saleService.getSales(
+      req.tenantId, 
+      req.query,
+      req.user.id,
+      req.user.role
+    );
     
     res.status(200).json(formatResponse(result));
   });
@@ -31,7 +36,12 @@ class SaleController {
    * Get sale by ID
    */
   getSaleById = asyncHandler(async (req, res, next) => {
-    const sale = await saleService.getSaleById(req.tenantId, req.params.id);
+    const sale = await saleService.getSaleById(
+      req.tenantId, 
+      req.params.id,
+      req.user.id,
+      req.user.role
+    );
     
     res.status(200).json(formatResponse(sale));
   });
@@ -52,7 +62,11 @@ class SaleController {
    * Get today's sales
    */
   getTodaySales = asyncHandler(async (req, res, next) => {
-    const result = await saleService.getTodaySales(req.tenantId);
+    const result = await saleService.getTodaySales(
+      req.tenantId,
+      req.user.id,
+      req.user.role
+    );
     
     res.status(200).json(formatResponse(result));
   });
@@ -63,7 +77,13 @@ class SaleController {
    */
   getSalesByDate = asyncHandler(async (req, res, next) => {
     const { start_date, end_date } = req.query;
-    const result = await saleService.getSalesByDateRange(req.tenantId, start_date, end_date);
+    const result = await saleService.getSalesByDateRange(
+      req.tenantId, 
+      start_date, 
+      end_date,
+      req.user.id,
+      req.user.role
+    );
     
     res.status(200).json(formatResponse(result));
   });

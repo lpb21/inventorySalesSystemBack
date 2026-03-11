@@ -5,6 +5,18 @@
 const { Customer, Sale, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const cacheService = require('./cacheService');
+const logger = require('../utils/logger');
+
+function withCacheMeta(result, meta, includeMeta) {
+  if (!includeMeta) {
+    return result;
+  }
+
+  return {
+    data: result,
+    meta,
+  };
+}
 
 class CustomerPaymentService {
   /**
@@ -78,14 +90,16 @@ class CustomerPaymentService {
    * Get customer balance and credit information
    * Uses cache to avoid repeated database queries
    */
-  async getCustomerBalance(tenantId, customerId) {
+  async getCustomerBalance(tenantId, customerId, options = {}) {
+    const { includeMeta = false } = options;
     // Generate cache key
     const cacheKey = cacheService.getCustomerBalanceKey(tenantId, customerId);
 
     // Try to get from cache first
-    const cachedData = await cacheService.get(cacheKey);
-    if (cachedData) {
-      return cachedData;
+    const cached = await cacheService.getWithMeta(cacheKey);
+    if (cached.hit) {
+      logger.info('customer-balance', 'Resolved from Redis', { tenantId, customerId });
+      return withCacheMeta(cached.value, { cache: 'HIT', source: 'redis' }, includeMeta);
     }
 
     // Cache miss - query database
@@ -114,24 +128,26 @@ class CustomerPaymentService {
 
     // Save to cache for future requests
     await cacheService.set(cacheKey, result);
+    logger.info('customer-balance', 'Resolved from database and stored in Redis', { tenantId, customerId });
 
-    return result;
+    return withCacheMeta(result, { cache: 'MISS', source: 'database' }, includeMeta);
   }
 
   /**
    * Get customer credit sales (sales with payment_method = 'credit')
    * Uses cache to avoid repeated database queries
    */
-  async getCustomerCreditSales(tenantId, customerId, { page = 1, limit = 20 } = {}) {
+  async getCustomerCreditSales(tenantId, customerId, { page = 1, limit = 20, includeMeta = false } = {}) {
     const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 
     // Generate cache key
     const cacheKey = cacheService.getCustomerCreditSalesKey(tenantId, customerId, page, limit);
 
     // Try to get from cache first
-    const cachedData = await cacheService.get(cacheKey);
-    if (cachedData) {
-      return cachedData;
+    const cached = await cacheService.getWithMeta(cacheKey);
+    if (cached.hit) {
+      logger.info('customer-credit-sales', 'Resolved from Redis', { tenantId, customerId, page, limit });
+      return withCacheMeta(cached.value, { cache: 'HIT', source: 'redis' }, includeMeta);
     }
 
     // Cache miss - query database
@@ -167,8 +183,14 @@ class CustomerPaymentService {
 
     // Save to cache for future requests
     await cacheService.set(cacheKey, result);
+    logger.info('customer-credit-sales', 'Resolved from database and stored in Redis', {
+      tenantId,
+      customerId,
+      page,
+      limit,
+    });
 
-    return result;
+    return withCacheMeta(result, { cache: 'MISS', source: 'database' }, includeMeta);
   }
 
   /**

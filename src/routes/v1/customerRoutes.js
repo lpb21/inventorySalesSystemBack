@@ -12,6 +12,7 @@ const { Customer } = require('../../models');
 const customerPaymentService = require('../../services/customerPaymentService');
 const cacheService = require('../../services/cacheService');
 const { ValidationError } = require('../../utils/errors');
+const logger = require('../../utils/logger');
 
 // All routes require authentication and tenant
 router.use(authMiddleware);
@@ -227,6 +228,7 @@ router.post('/:id/payments', async (req, res, next) => {
  * Get customer credit balance
  */
 router.get('/:id/balance', async (req, res, next) => {
+  const startedAt = Date.now();
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
@@ -235,12 +237,23 @@ router.get('/:id/balance', async (req, res, next) => {
 
     const result = await customerPaymentService.getCustomerBalance(
       tenantId,
-      req.params.id
+      req.params.id,
+      { includeMeta: true }
     );
+
+    res.set('X-Cache', result.meta.cache);
+    logger.info('http', 'Customer balance served', {
+      path: req.originalUrl,
+      tenantId,
+      customerId: req.params.id,
+      source: result.meta.source,
+      cache: result.meta.cache,
+      durationMs: Date.now() - startedAt,
+    });
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);
@@ -252,6 +265,7 @@ router.get('/:id/balance', async (req, res, next) => {
  * Get customer credit sales history
  */
 router.get('/:id/credit-sales', async (req, res, next) => {
+  const startedAt = Date.now();
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
@@ -263,12 +277,24 @@ router.get('/:id/credit-sales', async (req, res, next) => {
     const result = await customerPaymentService.getCustomerCreditSales(
       tenantId,
       req.params.id,
-      { page: parseInt(page), limit: parseInt(limit) }
+      { page: parseInt(page), limit: parseInt(limit), includeMeta: true }
     );
+
+    res.set('X-Cache', result.meta.cache);
+    logger.info('http', 'Customer credit sales served', {
+      path: req.originalUrl,
+      tenantId,
+      customerId: req.params.id,
+      source: result.meta.source,
+      cache: result.meta.cache,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      durationMs: Date.now() - startedAt,
+    });
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);

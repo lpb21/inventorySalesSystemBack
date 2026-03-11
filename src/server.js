@@ -6,28 +6,32 @@ require('dotenv').config();
 const app = require('./app');
 const env = require('./config/env');
 const { sequelize } = require('./models');
+const logger = require('./utils/logger');
 
 const PORT = env.port;
 
 const startServer = async () => {
   try {
-    // Test database connection
     await sequelize.authenticate();
-    console.log('✓ Conexión a la BD exitosa');
+    logger.info('server', 'Database connection ready');
 
-    // Start server
+    try {
+      const cacheService = require('./services/cacheService');
+      cacheService.connect();
+    } catch (cacheError) {
+      logger.warn('server', 'Cache service could not be initialized', { error: cacheError.message });
+    }
+
     app.listen(PORT, () => {
-      console.log(`
-╔═══════════════════════════════════════════════════╗
-║   invLeo API Server                               ║
-║   Version: 1.0.0                                  ║
-║   Puerto: ${PORT}                                    ║
-║   Entorno: ${env.nodeEnv}                            ║
-╚═══════════════════════════════════════════════════╝
-      `);
+      logger.info('server', 'API listening', {
+        app: 'invLeo',
+        version: '1.0.0',
+        port: PORT,
+        environment: env.nodeEnv,
+      });
     });
   } catch (error) {
-    console.error('✗ Error al iniciar el servidor:', error);
+    logger.error('server', 'Startup failed', { error: error.message });
     process.exit(1);
   }
 };

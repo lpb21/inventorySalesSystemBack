@@ -14,18 +14,18 @@ class TenantController {
    * Create new tenant with owner user (superadmin only)
    */
   createTenant = asyncHandler(async (req, res, next) => {
-    const { 
-      name, 
-      slug, 
-      business_name, 
-      email, 
-      address, 
-      phone, 
+    const {
+      name,
+      slug,
+      business_name,
+      email,
+      address,
+      phone,
       plan,
       subscription_end_date,
-      owner_name, 
-      owner_email, 
-      owner_password 
+      owner_name,
+      owner_email,
+      owner_password
     } = req.body;
 
     // Validate required fields (handled by Joi validation middleware)
@@ -129,7 +129,7 @@ class TenantController {
     const tenants = await Tenant.findAll({
       attributes: { exclude: ['created_at', 'updated_at'] }
     });
-    
+
     res.status(200).json(formatResponse(tenants));
   });
 
@@ -138,12 +138,18 @@ class TenantController {
    * Get tenant by ID
    */
   getTenantById = asyncHandler(async (req, res, next) => {
-    const tenant = await Tenant.findByPk(req.params.id);
-    
-    if (!tenant) {
-      return res.status(404).json(formatResponse(null, 'Tenant not found'));
+    let tenant;
+
+    if (req.params.id === 'current') {
+      tenant = req.tenant;
+    } else {
+      tenant = await Tenant.findByPk(req.params.id);
     }
-    
+
+    if (!tenant) {
+      return res.status(404).json(formatResponse(null, 'Empresa no encontrada'));
+    }
+
     res.status(200).json(formatResponse(tenant));
   });
 
@@ -153,13 +159,13 @@ class TenantController {
    */
   updateTenant = asyncHandler(async (req, res, next) => {
     const tenant = await Tenant.findByPk(req.params.id);
-    
+
     if (!tenant) {
       return res.status(404).json(formatResponse(null, 'Tenant not found'));
     }
-    
+
     await tenant.update(req.body);
-    
+
     res.status(200).json(formatResponse(tenant));
   });
 
@@ -169,13 +175,13 @@ class TenantController {
    */
   deleteTenant = asyncHandler(async (req, res, next) => {
     const tenant = await Tenant.findByPk(req.params.id);
-    
+
     if (!tenant) {
       return res.status(404).json(formatResponse(null, 'Tenant not found'));
     }
-    
+
     await tenant.update({ is_active: false });
-    
+
     res.status(200).json(formatResponse({ message: 'Tenant deleted successfully' }));
   });
 }

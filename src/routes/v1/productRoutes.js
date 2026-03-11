@@ -12,6 +12,7 @@ const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
 const { validate } = require('../../middlewares/validationMiddleware');
 const { productSchema, updateProductSchema } = require('../../utils/validators');
+const { uploadLimiter, writeOperationsLimiter } = require('../../middlewares/rateLimitMiddleware');
 const fs = require('fs');
 
 // Configure multer for CSV file upload
@@ -61,8 +62,8 @@ router.use((req, res, next) => {
 
 // Product routes
 router.get('/', permissionMiddleware('products:read'), productController.getProducts);
-router.post('/', permissionMiddleware('products:create'), validate(productSchema), productController.createProduct);
-router.post('/import', permissionMiddleware('products:create'), (req, res, next) => {
+router.post('/', writeOperationsLimiter, permissionMiddleware('products:create'), validate(productSchema), productController.createProduct);
+router.post('/import', uploadLimiter, permissionMiddleware('products:create'), (req, res, next) => {
   console.log('[ROUTE DEBUG] Antes de upload.single');
   
   const uploadHandler = upload.single('file');
@@ -97,7 +98,7 @@ router.get('/low-stock', permissionMiddleware('products:read'), productControlle
 router.get('/search', permissionMiddleware('products:read'), productController.searchProducts);
 router.get('/barcode/:code', permissionMiddleware('products:read'), productController.getProductByBarcode);
 router.get('/:id', permissionMiddleware('products:read'), productController.getProductById);
-router.put('/:id', permissionMiddleware('products:update'), validate(updateProductSchema), productController.updateProduct);
+router.put('/:id', writeOperationsLimiter, permissionMiddleware('products:update'), validate(updateProductSchema), productController.updateProduct);
 router.delete('/:id', permissionMiddleware('products:delete'), productController.deleteProduct);
 
 module.exports = router;

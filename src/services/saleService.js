@@ -48,8 +48,8 @@ class SaleService {
         }
 
         // Calculate item total
-        const itemTotal = item.total_price 
-          ? parseFloat(item.total_price) 
+        const itemTotal = item.total_price
+          ? parseFloat(item.total_price)
           : parseFloat(item.quantity) * parseFloat(item.unit_price);
         calculatedSubtotal += itemTotal;
 
@@ -94,34 +94,34 @@ class SaleService {
       const discount = parseFloat(saleData.discount) || 0;
       const tax = parseFloat(saleData.tax) || 0;
       const total = subtotal - discount + tax;
-      
+
       // Handle credit sales differently
       const isCreditSale = saleData.payment_method === 'credit';
       let paymentReceived, changeGiven;
-      
+
       if (isCreditSale) {
         // For credit sales, no immediate payment received
         paymentReceived = 0;
         changeGiven = 0;
-        
+
         // Validate customer_id is provided for credit sales
         if (!saleData.customer_id) {
           throw new ValidationError('Se requiere un cliente para ventas a crédito');
         }
-        
+
         // Check customer credit limit
         const customer = await Customer.findOne({
           where: { id: saleData.customer_id, tenant_id: tenantId },
         });
-        
+
         if (!customer) {
           throw new NotFoundError('Cliente no encontrado');
         }
-        
+
         const currentBalance = parseFloat(customer.credit_balance) || 0;
         const creditLimit = parseFloat(customer.credit_limit) || 0;
         const newBalance = currentBalance + total;
-        
+
         if (creditLimit > 0 && newBalance > creditLimit) {
 
           throw new ValidationError(
@@ -129,7 +129,7 @@ class SaleService {
           );
         }
 
-        
+
         // Update customer credit balance
         await customer.update({ credit_balance: newBalance }, { transaction });
 
@@ -144,13 +144,51 @@ class SaleService {
           cacheService.invalidate(
             cacheService.getCustomersWithCreditPattern(tenantId)
           ),
-        ]).catch(() => {});
+        ]).catch(() => { });
       } else {
         // Regular sale - Si payment_received no está definido o es 0, usar el total
         paymentReceived = parseFloat(saleData.payment_received) || total;
         changeGiven = Math.max(0, paymentReceived - total);
       }
 
+      // Get cash register for this sale
+      let cashRegisterId = saleData.cash_register_id || null;
+
+      // For cashiers, ensure they have an active cash register and use it
+      const { User, CashRegister } = require('../models');
+      const user = await User.findByPk(userId, { transaction });
+      
+      if (user && user.role === 'cashier') {
+        // Cashiers must have an active cash register
+        const activeCashRegister = await CashRegister.findOne({
+          where: {
+            tenant_id: tenantId,
+            user_id: userId,
+            status: 'open'
+          },
+          transaction
+        });
+
+        if (!activeCashRegister) {
+          throw new ValidationError('Debes abrir un turno de caja antes de realizar ventas');
+        }
+
+        cashRegisterId = activeCashRegister.id;
+      } else if (cashRegisterId) {
+        // For non-cashiers, validate that the specified cash register exists and is open
+        const specifiedCashRegister = await CashRegister.findOne({
+          where: {
+            id: cashRegisterId,
+            tenant_id: tenantId,
+            status: 'open'
+          },
+          transaction
+        });
+
+        if (!specifiedCashRegister) {
+          throw new ValidationError('La caja especificada no está abierta o no existe');
+        }
+      }
 
       // Create sale
       const sale = await Sale.create({
@@ -159,6 +197,7 @@ class SaleService {
         customer_id: saleData.customer_id || null,
         customer_name: saleData.customer_name,
         customer_document: saleData.customer_document,
+        cash_register_id: cashRegisterId,
         subtotal,
         discount,
         tax,
@@ -180,6 +219,20 @@ class SaleService {
         })),
         { transaction }
       );
+
+      // Update cash register if this is a cash sale
+      if (cashRegisterId && saleData.payment_method === 'cash') {
+        const cashRegister = await CashRegister.findByPk(cashRegisterId, { transaction });
+        if (cashRegister && cashRegister.status === 'open') {
+          const newCashAmount = parseFloat(cashRegister.cash_in_drawer) + parseFloat(total);
+          const newExpectedAmount = parseFloat(cashRegister.expected_amount) + parseFloat(total);
+          
+          await cashRegister.update({
+            cash_in_drawer: newCashAmount,
+            expected_amount: newExpectedAmount
+          }, { transaction });
+        }
+      }
 
       await transaction.commit();
 
@@ -228,9 +281,27 @@ class SaleService {
   /**
    * Get sale by ID
    */
-  async getSaleById(tenantId, saleId) {
+  async getSaleById(tenantId, saleId, userId = null, userRole = null) {
+    const where = { id: saleId, tenant_id: tenantId };
+
+    // For cashiers, verify they can only see sales from their cash registers
+    if (userRole === 'cashier' && userId) {
+      const { CashRegister } = require('../models');
+      
+      const userCashRegisters = await CashRegister.findAll({
+        where: { tenant_id: tenantId, user_id: userId },
+        attributes: ['id']
+      });
+
+      if (userCashRegisters.length === 0) {
+        throw new NotFoundError('Venta no encontrada');
+      }
+
+      where.cash_register_id = { [Op.in]: userCashRegisters.map(cr => cr.id) };
+    }
+
     const sale = await Sale.findOne({
-      where: { id: saleId, tenant_id: tenantId },
+      where,
       include: [
         {
           model: SaleItem,
@@ -248,10 +319,73 @@ class SaleService {
   }
 
   /**
+   * Get sales by cash register shift
+   */
+  async getSalesByShift(tenantId, shiftId, { page = 1, limit = 20 } = {}) {
+    const where = {
+      tenant_id: tenantId,
+      cash_register_id: shiftId
+    };
+
+    const { count, rows } = await Sale.findAndCountAll({
+      where,
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          attributes: ['id', 'product_id', 'quantity', 'unit_price', 'subtotal'],
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
+        },
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: getPaginationSkip(page, limit),
+    });
+
+    // Calculate summary
+    const totalRevenue = rows.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
+    const paymentMethodSummary = rows.reduce((acc, sale) => {
+      acc[sale.payment_method] = (acc[sale.payment_method] || 0) + parseFloat(sale.total);
+      return acc;
+    }, {});
+
+    return {
+      sales: rows,
+      pagination: formatPagination(page, limit, count),
+      summary: {
+        total_sales: count,
+        total_revenue: totalRevenue,
+        by_payment_method: paymentMethodSummary
+      }
+    };
+  }
+
+  /**
    * Get sales with pagination and filters
    */
-  async getSales(tenantId, { page = 1, limit = 20, status, start_date, end_date } = {}) {
+  async getSales(tenantId, { page = 1, limit = 20, status, start_date, end_date } = {}, userId = null, userRole = null) {
     const where = { tenant_id: tenantId };
+
+    // Filter by cash register for cashiers
+    if (userRole === 'cashier' && userId) {
+      const { CashRegister } = require('../models');
+      
+      // Get all cash registers for this user (both active and closed)
+      const userCashRegisters = await CashRegister.findAll({
+        where: { tenant_id: tenantId, user_id: userId },
+        attributes: ['id']
+      });
+
+      if (userCashRegisters.length === 0) {
+        // If cashier has no cash registers, return empty result
+        return {
+          sales: [],
+          pagination: formatPagination(page, limit, 0),
+        };
+      }
+
+      where.cash_register_id = { [Op.in]: userCashRegisters.map(cr => cr.id) };
+    }
 
     if (status) {
       where.status = status;
@@ -270,7 +404,12 @@ class SaleService {
     const { count, rows } = await Sale.findAndCountAll({
       where,
       include: [
-        { model: SaleItem, as: 'items', attributes: ['id', 'product_id', 'quantity', 'unit_price', 'subtotal'] },
+        {
+          model: SaleItem,
+          as: 'items',
+          attributes: ['id', 'product_id', 'quantity', 'unit_price', 'subtotal'],
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
+        },
       ],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
@@ -286,18 +425,40 @@ class SaleService {
   /**
    * Get today's sales
    */
-  async getTodaySales(tenantId) {
+  async getTodaySales(tenantId, userId = null, userRole = null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const where = {
+      tenant_id: tenantId,
+      created_at: { [Op.gte]: today },
+      status: 'completed',
+    };
+
+    // Filter by cash register for cashiers
+    if (userRole === 'cashier' && userId) {
+      const { CashRegister } = require('../models');
+      
+      const userCashRegisters = await CashRegister.findAll({
+        where: { tenant_id: tenantId, user_id: userId },
+        attributes: ['id']
+      });
+
+      if (userCashRegisters.length === 0) {
+        return { sales: [], summary: { totalSales: 0, totalRevenue: 0 } };
+      }
+
+      where.cash_register_id = { [Op.in]: userCashRegisters.map(cr => cr.id) };
+    }
+
     const sales = await Sale.findAll({
-      where: {
-        tenant_id: tenantId,
-        created_at: { [Op.gte]: today },
-        status: 'completed',
-      },
+      where,
       include: [
-        { model: SaleItem, as: 'items' },
+        {
+          model: SaleItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
+        },
       ],
       order: [['created_at', 'DESC']],
     });
@@ -390,16 +551,41 @@ class SaleService {
   /**
    * Get sales by date range
    */
-  async getSalesByDateRange(tenantId, startDate, endDate) {
-    const sales = await Sale.findAll({
-      where: {
-        tenant_id: tenantId,
-        created_at: {
-          [Op.gte]: new Date(startDate),
-          [Op.lte]: new Date(endDate),
-        },
-        status: 'completed',
+  async getSalesByDateRange(tenantId, startDate, endDate, userId = null, userRole = null) {
+    const where = {
+      tenant_id: tenantId,
+      created_at: {
+        [Op.gte]: new Date(startDate),
+        [Op.lte]: new Date(endDate),
       },
+      status: 'completed',
+    };
+
+    // Filter by cash register for cashiers
+    if (userRole === 'cashier' && userId) {
+      const { CashRegister } = require('../models');
+      
+      const userCashRegisters = await CashRegister.findAll({
+        where: { tenant_id: tenantId, user_id: userId },
+        attributes: ['id']
+      });
+
+      if (userCashRegisters.length === 0) {
+        return { sales: [], summary: { totalSales: 0, totalRevenue: 0 } };
+      }
+
+      where.cash_register_id = { [Op.in]: userCashRegisters.map(cr => cr.id) };
+    }
+
+    const sales = await Sale.findAll({
+      where,
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }]
+        },
+      ],
       order: [['created_at', 'DESC']],
     });
 

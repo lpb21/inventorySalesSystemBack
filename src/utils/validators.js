@@ -99,6 +99,7 @@ const updateCategorySchema = categorySchema.fork(
 const productSchema = Joi.object({
   name: requiredString.max(255),
   category_id: requiredUUID.allow(null, ''),
+  supplier_id: uuidSchema.allow(null, ''),
   description: optionalString,
   sku: optionalString.max(50),
   barcode: optionalString.max(100),
@@ -113,10 +114,23 @@ const productSchema = Joi.object({
   is_active: optionalBoolean.default(true),
 });
 
-const updateProductSchema = productSchema.fork(
-  ['name', 'category_id', 'price'],
-  (schema) => schema.optional()
-);
+const updateProductSchema = Joi.object({
+  name: optionalString.max(255),
+  category_id: uuidSchema.allow(null, ''),
+  supplier_id: uuidSchema.allow(null, ''),
+  description: optionalString,
+  sku: optionalString.max(50),
+  barcode: optionalString.max(100),
+  price: optionalNumber.positive(),
+  cost: optionalNumber.positive().allow(0),
+  stock: optionalNumber.min(0),
+  min_stock: optionalNumber.min(0),
+  unit: Joi.string().valid('kg', 'lb', 'und', 'paq', 'l', 'ml').optional(),
+  type: Joi.string().valid('weight', 'unit', 'portion').optional(),
+  image_url: optionalString,
+  expiry_date: Joi.string().optional().allow(null, ''),
+  is_active: optionalBoolean,
+}).options({ allowUnknown: false }); // Esto rechaza campos no definidos
 
 // Inventory schemas
 const inventoryAdjustmentSchema = Joi.object({
@@ -149,10 +163,52 @@ const saleSchema = Joi.object({
   ).min(1).required(),
 });
 
+// Supplier schemas
+const supplierSchema = Joi.object({
+  name: requiredString.max(255).messages({
+    'any.required': 'El nombre del proveedor es requerido',
+    'string.empty': 'El nombre del proveedor es requerido',
+    'string.max': 'El nombre del proveedor no puede exceder 255 caracteres'
+  }),
+  contact_name: optionalString.max(255),
+  document: Joi.string().optional().max(50).allow(null, ''),
+  email: Joi.string().email().optional().allow(null, '').messages({
+    'string.email': 'El email debe tener un formato válido'
+  }),
+  phone: optionalString.max(50),
+  address: Joi.string().optional().max(1000).allow(null, ''),
+  notes: Joi.string().optional().max(1000).allow(null, ''),
+  is_active: optionalBoolean.default(true),
+});
+
+const updateSupplierSchema = supplierSchema.fork(
+  ['name'],
+  (schema) => schema.optional()
+);
 
 const cancelSaleSchema = Joi.object({
   reason: Joi.string().required().max(500),
 });
+
+/**
+ * Validate supplier data
+ */
+function validateSupplierData(data, isCreate = true) {
+  const schema = isCreate ? supplierSchema : updateSupplierSchema;
+  const { error, value } = schema.validate(data, { abortEarly: false });
+  
+  if (error) {
+    return {
+      isValid: false,
+      errors: error.details.map(detail => detail.message)
+    };
+  }
+  
+  return {
+    isValid: true,
+    data: value
+  };
+}
 
 module.exports = {
   // Auth
@@ -182,6 +238,11 @@ module.exports = {
   // Sales
   saleSchema,
   cancelSaleSchema,
+  
+  // Suppliers
+  supplierSchema,
+  updateSupplierSchema,
+  validateSupplierData,
   
   // Common
   uuidSchema,
