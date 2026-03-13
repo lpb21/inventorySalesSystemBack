@@ -23,11 +23,22 @@ router.use(tenantMiddleware);
 router.get('/', permissionMiddleware('customers:read'), async (req, res, next) => {
   try {
     const tenantId = req.tenant?.id;
-    const { page = 1, limit = 20, search } = req.query;
+    const { page = 1, limit = 20, search, is_active } = req.query;
 
     const where = { tenant_id: tenantId };
     if (search) {
       where.name = { [require('sequelize').Op.iLike]: `%${search}%` };
+    }
+
+    // Optional filter by active status: ?is_active=true|false
+    if (is_active !== undefined) {
+      if (is_active === 'true') {
+        where.is_active = true;
+      } else if (is_active === 'false') {
+        where.is_active = false;
+      } else {
+        throw new ValidationError('El parámetro is_active debe ser true o false');
+      }
     }
 
     const { count, rows } = await Customer.findAndCountAll({
