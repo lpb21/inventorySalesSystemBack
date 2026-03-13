@@ -59,14 +59,19 @@ function buildValidationError(error) {
 
 const validate = (schema) => {
   return (req, res, next) => {
-    const { error, value } = schema.validate(req.body, {
+    const dataToValidate = (req.body && req.body.data && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
+      ? req.body.data
+      : req.body;
+
+    const { error, value } = schema.validate(dataToValidate, {
       abortEarly: false,
       stripUnknown: true,
     });
-    
+
+
     if (error) {
       const details = buildValidationError(error);
-      
+
       return res.status(400).json({
         success: false,
         error: {
@@ -76,7 +81,7 @@ const validate = (schema) => {
         },
       });
     }
-    
+
     // Replace req.body with validated and sanitized value
     req.body = value;
     next();
@@ -89,10 +94,10 @@ const validateQuery = (schema) => {
       abortEarly: false,
       stripUnknown: true,
     });
-    
+
     if (error) {
       const details = buildValidationError(error);
-      
+
       return res.status(400).json({
         success: false,
         error: {
@@ -102,7 +107,7 @@ const validateQuery = (schema) => {
         },
       });
     }
-    
+
     req.query = value;
     next();
   };
@@ -114,10 +119,10 @@ const validateParams = (schema) => {
       abortEarly: false,
       stripUnknown: true,
     });
-    
+
     if (error) {
       const details = buildValidationError(error);
-      
+
       return res.status(400).json({
         success: false,
         error: {
@@ -127,7 +132,7 @@ const validateParams = (schema) => {
         },
       });
     }
-    
+
     req.params = value;
     next();
   };

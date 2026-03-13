@@ -13,6 +13,7 @@ const customerPaymentService = require('../../services/customerPaymentService');
 const cacheService = require('../../services/cacheService');
 const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
+const { Op } = require('sequelize');
 
 // All routes require authentication and tenant
 router.use(authMiddleware);
@@ -23,7 +24,7 @@ router.get('/', permissionMiddleware('customers:read'), async (req, res, next) =
   try {
     const tenantId = req.tenant?.id;
     const { page = 1, limit = 20, search } = req.query;
-    
+
     const where = { tenant_id: tenantId };
     if (search) {
       where.name = { [require('sequelize').Op.iLike]: `%${search}%` };
@@ -60,18 +61,60 @@ router.post('/', permissionMiddleware('customers:create'), async (req, res, next
     if (!tenantId) {
       throw new ValidationError('Tenant no encontrado');
     }
+    // Soporte para cuerpos anidados { data: { ... } } enviados por algunas librerías
+    const payload = (req.body && req.body.data && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
+      ? req.body.data
+      : req.body;
 
-    const { name, document, email, phone, address, credit_limit } = req.body;
-    
-    if (!name) {
+    const { id, name, document, email, phone, address, credit_limit } = payload;
+    const normalizedDocument = typeof document === 'string' ? document.trim() : document;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
+
+    // Si viene un ID en el cuerpo de un POST, el usuario probablemente está intentando editar
+    // pero su frontend está llamando a la ruta equivocada o no detectó el ID en el envoltorio.
+    if (id || payload.id || req.body?.id) {
+      console.log('[DEBUG CUSTOMERS] POST recibido con ID. Intentando redirigir o actualizar...');
+      // Podríamos arrojar un error para que el usuario corrija su frontend,
+      // o simplemente buscar y actualizar para ser "misericordiosos".
+      // Por ahora, arrojamos error descriptivo.
+      throw new ValidationError('Se recibió un ID en una petición de creación. Use PUT para actualizaciones.');
+    }
+
+    if (!name && !payload.name) {
       throw new ValidationError('El nombre del cliente es requerido');
+    }
+
+    if (normalizedDocument) {
+      const existingCustomerByDocument = await Customer.findOne({
+        where: {
+          tenant_id: tenantId,
+          document: normalizedDocument,
+        },
+      });
+
+      if (existingCustomerByDocument) {
+        throw new ValidationError('Ya existe un cliente con este documento. Use PUT para actualizarlo.');
+      }
+    }
+
+    if (normalizedEmail) {
+      const existingCustomerByEmail = await Customer.findOne({
+        where: {
+          tenant_id: tenantId,
+          email: normalizedEmail,
+        },
+      });
+
+      if (existingCustomerByEmail) {
+        throw new ValidationError('Ya existe un cliente con este email. Use PUT para actualizarlo.');
+      }
     }
 
     const customer = await Customer.create({
       tenant_id: tenantId,
       name,
-      document: document || null,
-      email: email || null,
+      document: normalizedDocument || null,
+      email: normalizedEmail || null,
       phone: phone || null,
       address: address || null,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
@@ -122,12 +165,46 @@ router.put('/:id', permissionMiddleware('customers:update'), async (req, res, ne
       throw new ValidationError('Cliente no encontrado');
     }
 
-    const { name, document, email, phone, address, credit_limit, is_active } = req.body;
-    
+    const payload = (req.body && req.body.data && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
+      ? req.body.data
+      : req.body;
+
+    const { name, document, email, phone, address, credit_limit, is_active } = payload;
+    const normalizedDocument = typeof document === 'string' ? document.trim() : document;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
+
+    if (normalizedDocument !== undefined && normalizedDocument !== customer.document) {
+      const existingCustomerByDocument = await Customer.findOne({
+        where: {
+          tenant_id: tenantId,
+          document: normalizedDocument,
+          id: { [Op.ne]: customer.id },
+        },
+      });
+
+      if (existingCustomerByDocument) {
+        throw new ValidationError('Ya existe otro cliente con este documento');
+      }
+    }
+
+    if (normalizedEmail !== undefined && normalizedEmail !== (customer.email ? customer.email.toLowerCase() : customer.email)) {
+      const existingCustomerByEmail = await Customer.findOne({
+        where: {
+          tenant_id: tenantId,
+          email: normalizedEmail,
+          id: { [Op.ne]: customer.id },
+        },
+      });
+
+      if (existingCustomerByEmail) {
+        throw new ValidationError('Ya existe otro cliente con este email');
+      }
+    }
+
     await customer.update({
       name: name || customer.name,
-      document: document !== undefined ? document : customer.document,
-      email: email !== undefined ? email : customer.email,
+      document: document !== undefined ? normalizedDocument : customer.document,
+      email: email !== undefined ? normalizedEmail : customer.email,
       phone: phone !== undefined ? phone : customer.phone,
       address: address !== undefined ? address : customer.address,
       credit_limit: credit_limit !== undefined ? parseFloat(credit_limit) : customer.credit_limit,
@@ -201,7 +278,7 @@ router.post('/:id/payments', async (req, res, next) => {
     }
 
     const { amount, note } = req.body;
-    
+
     if (!amount || parseFloat(amount) <= 0) {
       throw new ValidationError('El monto del abono es requerido y debe ser mayor a 0');
     }
@@ -340,7 +417,7 @@ router.put('/:id/credit-limit', async (req, res, next) => {
     }
 
     const { credit_limit } = req.body;
-    
+
     if (credit_limit === undefined || credit_limit === null) {
       throw new ValidationError('El límite de crédito es requerido');
     }
