@@ -22,20 +22,14 @@ const errorMiddleware = (err, req, res, next) => {
     error.statusCode = 400;
     error.errorCode = 'VALIDATION_ERROR';
     error.message = 'Error de validación';
-    error.details = err.errors.map(e => ({
-      field: e.path,
-      message: e.message,
-    }));
+    error.details = err.errors.map(e => e.message);
   }
 
   if (err.name === 'SequelizeUniqueConstraintError') {
     error.statusCode = 409;
     error.errorCode = 'DUPLICATE_ERROR';
     error.message = 'El recurso ya existe';
-    error.details = err.errors.map(e => ({
-      field: e.path,
-      message: e.message,
-    }));
+    error.details = err.errors.map(e => e.message);
   }
 
   if (err.name === 'SequelizeDatabaseError') {

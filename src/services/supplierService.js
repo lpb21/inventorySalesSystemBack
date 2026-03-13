@@ -126,6 +126,12 @@ class SupplierService {
    * Create new supplier
    */
   async createSupplier(tenantId, supplierData, userId) {
+    const normalizedData = {
+      ...supplierData,
+      document: typeof supplierData.document === 'string' ? supplierData.document.trim() : supplierData.document,
+      email: typeof supplierData.email === 'string' ? supplierData.email.trim().toLowerCase() : supplierData.email,
+    };
+
     // Check supplier limit for tenant plan (if any)
     const tenant = await Tenant.findByPk(tenantId);
     if (tenant.plan === 'basic') {
@@ -136,9 +142,9 @@ class SupplierService {
     }
 
     // Check for unique document within tenant
-    if (supplierData.document) {
+    if (normalizedData.document) {
       const existingDocument = await Supplier.findOne({
-        where: { tenant_id: tenantId, document: supplierData.document },
+        where: { tenant_id: tenantId, document: normalizedData.document },
       });
       if (existingDocument) {
         throw new ValidationError('Ya existe un proveedor con este documento');
@@ -146,9 +152,9 @@ class SupplierService {
     }
 
     // Check for unique email within tenant (if provided)
-    if (supplierData.email) {
+    if (normalizedData.email) {
       const existingEmail = await Supplier.findOne({
-        where: { tenant_id: tenantId, email: supplierData.email },
+        where: { tenant_id: tenantId, email: normalizedData.email },
       });
       if (existingEmail) {
         throw new ValidationError('Ya existe un proveedor con este email');
@@ -156,7 +162,7 @@ class SupplierService {
     }
 
     const supplier = await Supplier.create({
-      ...supplierData,
+      ...normalizedData,
       tenant_id: tenantId,
     });
 
@@ -207,34 +213,43 @@ class SupplierService {
       is_active: supplier.is_active
     };
 
+    const normalizedData = {
+      ...supplierData,
+      document: typeof supplierData.document === 'string' ? supplierData.document.trim() : supplierData.document,
+      email: typeof supplierData.email === 'string' ? supplierData.email.trim().toLowerCase() : supplierData.email,
+    };
+
+    const currentDocument = typeof supplier.document === 'string' ? supplier.document.trim() : supplier.document;
+    const currentEmail = typeof supplier.email === 'string' ? supplier.email.trim().toLowerCase() : supplier.email;
+
     // Check unique constraints if being updated
-    if (supplierData.document && supplierData.document !== supplier.document) {
+    if (normalizedData.document && normalizedData.document !== currentDocument) {
       const existingDocument = await Supplier.findOne({
         where: { 
           tenant_id: tenantId, 
-          document: supplierData.document, 
+          document: normalizedData.document,
           id: { [Op.ne]: supplierId } 
         },
       });
       if (existingDocument) {
-        throw new ValidationError('Ya existe un proveedor con este documento');
+        throw new ValidationError('Ya existe otro proveedor con este documento');
       }
     }
 
-    if (supplierData.email && supplierData.email !== supplier.email) {
+    if (normalizedData.email && normalizedData.email !== currentEmail) {
       const existingEmail = await Supplier.findOne({
         where: { 
           tenant_id: tenantId, 
-          email: supplierData.email, 
+          email: normalizedData.email,
           id: { [Op.ne]: supplierId } 
         },
       });
       if (existingEmail) {
-        throw new ValidationError('Ya existe un proveedor con este email');
+        throw new ValidationError('Ya existe otro proveedor con este email');
       }
     }
 
-    await supplier.update(supplierData);
+    await supplier.update(normalizedData);
 
     // Log audit
     await auditService.log({

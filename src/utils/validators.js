@@ -170,21 +170,40 @@ const supplierSchema = Joi.object({
     'string.empty': 'El nombre del proveedor es requerido',
     'string.max': 'El nombre del proveedor no puede exceder 255 caracteres'
   }),
-  contact_name: optionalString.max(255),
-  document: Joi.string().optional().max(50).allow(null, ''),
-  email: Joi.string().email().optional().allow(null, '').messages({
+  contact_name: Joi.string().required().max(255).messages({
+    'any.required': 'El nombre del contacto es requerido',
+    'string.empty': 'El nombre del contacto es requerido',
+    'string.max': 'El nombre del contacto no puede exceder 255 caracteres'
+  }),
+  document: Joi.string().required().max(50).messages({
+    'any.required': 'El documento del proveedor es requerido',
+    'string.empty': 'El documento del proveedor es requerido',
+    'string.max': 'El documento del proveedor no puede exceder 50 caracteres'
+  }),
+  email: Joi.string().email().required().messages({
+    'any.required': 'El email del proveedor es requerido',
+    'string.empty': 'El email del proveedor es requerido',
     'string.email': 'El email debe tener un formato válido'
   }),
-  phone: optionalString.max(50),
-  address: Joi.string().optional().max(1000).allow(null, ''),
-  notes: Joi.string().optional().max(1000).allow(null, ''),
+  phone: Joi.string().required().max(50).messages({
+    'any.required': 'El teléfono del proveedor es requerido',
+    'string.empty': 'El teléfono del proveedor es requerido',
+    'string.max': 'El teléfono del proveedor no puede exceder 50 caracteres'
+  }),
+  address: Joi.string().required().max(1000).messages({
+    'any.required': 'La dirección del proveedor es requerida',
+    'string.empty': 'La dirección del proveedor es requerida',
+    'string.max': 'La dirección del proveedor no puede exceder 1000 caracteres'
+  }),
+  notes: Joi.string().required().max(1000).messages({
+    'any.required': 'Las notas del proveedor son requeridas',
+    'string.empty': 'Las notas del proveedor son requeridas',
+    'string.max': 'Las notas del proveedor no pueden exceder 1000 caracteres'
+  }),
   is_active: optionalBoolean.default(true),
 });
 
-const updateSupplierSchema = supplierSchema.fork(
-  ['name'],
-  (schema) => schema.optional()
-);
+const updateSupplierSchema = supplierSchema;
 
 const cancelSaleSchema = Joi.object({
   reason: Joi.string().required().max(500),
