@@ -337,7 +337,15 @@ class SupplierService {
    */
   async toggleSupplierStatus(tenantId, supplierId, userId) {
     const supplier = await Supplier.findOne({
-      where: { id: supplierId, tenant_id: tenantId }
+      where: { id: supplierId, tenant_id: tenantId },
+      include: [
+        {
+          model: Product,
+          as: 'products',
+          attributes: ['id'],
+          required: false,
+        },
+      ],
     });
 
     if (!supplier) {
@@ -346,6 +354,11 @@ class SupplierService {
 
     const oldStatus = supplier.is_active;
     const newStatus = !oldStatus;
+
+    // Prevent deactivation when supplier has associated products
+    if (oldStatus === true && newStatus === false && supplier.products && supplier.products.length > 0) {
+      throw new ValidationError('No se puede desactivar un proveedor que tiene productos asociados');
+    }
 
     await supplier.update({ is_active: newStatus });
 
