@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { User, Tenant } = require('../models');
 const { AuthenticationError, ConflictError, ValidationError } = require('../utils/errors');
 const env = require('../config/env');
+const plansConfig = require('../config/plans');
 
 class AuthService {
   /**
@@ -56,6 +57,7 @@ class AuthService {
           name: user.tenant.name,
           business_name: user.tenant.business_name,
           plan: user.tenant.plan,
+          limits: plansConfig[user.tenant.plan] || plansConfig.free,
           address: user.tenant.address,
           phone: user.tenant.phone,
         } : null,
@@ -123,6 +125,7 @@ class AuthService {
             name: tenant.name,
             business_name: tenant.business_name,
             plan: tenant.plan,
+            limits: plansConfig[tenant.plan] || plansConfig.free,
             address: tenant.address,
             phone: tenant.phone,
           },
@@ -152,6 +155,7 @@ class AuthService {
       name: user.tenant.name,
       business_name: user.tenant.business_name,
       plan: user.tenant.plan,
+      limits: plansConfig[user.tenant.plan] || plansConfig.free,
       address: user.tenant.address,
       phone: user.tenant.phone,
     } : null;

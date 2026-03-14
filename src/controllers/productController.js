@@ -8,6 +8,7 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
+const limitService = require('../services/limitService');
 
 // Event emitter for progress updates
 const importProgress = new EventEmitter();
@@ -60,17 +61,22 @@ class ProductController {
       console.log('[IMPORT DEBUG] Archivo:', req.file ? req.file.originalname : 'NO FILE');
       console.log('[IMPORT DEBUG] TenantId:', req.tenantId);
       console.log('[IMPORT DEBUG] UserId:', req.user ? req.user.id : 'NO USER');
-      
+
       if (!req.file) {
         console.log('[IMPORT DEBUG] ERROR: No se proporcionó archivo');
         return res.status(400).json(formatResponse(null, 'No se ha proporcionado ningún archivo CSV'));
       }
 
+      // Pre-check basic limit (though bulk import might go over, we at least check if they are already at limit)
+      if (req.user && !req.user.isSuperadmin && req.user.role !== 'superadmin') {
+        await limitService.checkResourceLimit(req.tenantId, req.tenant.plan, 'products');
+      }
+
       const importId = Date.now().toString(36) + Math.random().toString(36).substr(2);
       console.log('[IMPORT DEBUG] ImportId generado:', importId);
-      
+
       const results = [];
-      
+
       // Parse CSV file
       console.log('[IMPORT DEBUG] Iniciando parsing del CSV...');
       await new Promise((resolve, reject) => {
@@ -99,8 +105,8 @@ class ProductController {
       res.setHeader('Access-Control-Allow-Origin', '*');
 
       // Send initial connection message
-      res.write(`data: ${JSON.stringify({ 
-        status: 'connected', 
+      res.write(`data: ${JSON.stringify({
+        status: 'connected',
         importId,
         total: results.length,
         message: 'Importación iniciada'
@@ -111,8 +117,8 @@ class ProductController {
       console.log('[IMPORT DEBUG] Iniciando procesamiento...');
       const importResult = await productService.bulkImportProductsWithProgress(
         importId,
-        req.tenantId, 
-        results, 
+        req.tenantId,
+        results,
         req.user.id,
         (progressData) => {
           console.log('[IMPORT DEBUG] Enviando progreso SSE:', progressData.progress + '%');
@@ -145,7 +151,7 @@ class ProductController {
       res.end();
     } catch (error) {
       console.error('[IMPORT DEBUG] ERROR en handler:', error);
-      
+
       // Send error via SSE if headers already sent
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({
@@ -164,7 +170,7 @@ class ProductController {
    */
   getProducts = asyncHandler(async (req, res, next) => {
     const result = await productService.getProducts(req.tenantId, req.query);
-    
+
     res.status(200).json(formatResponse(result));
   });
 
@@ -173,8 +179,13 @@ class ProductController {
    * Create product
    */
   createProduct = asyncHandler(async (req, res, next) => {
+    // Check SaaS plan limit for products
+    if (!req.user.isSuperadmin && req.user.role !== 'superadmin') {
+      await limitService.checkResourceLimit(req.tenantId, req.tenant.plan, 'products');
+    }
+
     const product = await productService.createProduct(req.tenantId, req.body, req.user.id);
-    
+
     res.status(201).json(formatResponse(product));
   });
 
@@ -184,7 +195,7 @@ class ProductController {
    */
   getProductById = asyncHandler(async (req, res, next) => {
     const product = await productService.getProductById(req.tenantId, req.params.id);
-    
+
     res.status(200).json(formatResponse(product));
   });
 
@@ -194,7 +205,7 @@ class ProductController {
    */
   updateProduct = asyncHandler(async (req, res, next) => {
     const product = await productService.updateProduct(req.tenantId, req.params.id, req.body, req.user.id);
-    
+
     res.status(200).json(formatResponse(product));
   });
 
@@ -204,7 +215,7 @@ class ProductController {
    */
   deleteProduct = asyncHandler(async (req, res, next) => {
     const result = await productService.deleteProduct(req.tenantId, req.params.id, req.user.id);
-    
+
     res.status(200).json(formatResponse(result));
   });
 
@@ -214,7 +225,7 @@ class ProductController {
    */
   getLowStock = asyncHandler(async (req, res, next) => {
     const products = await productService.getLowStockProducts(req.tenantId);
-    
+
     res.status(200).json(formatResponse(products));
   });
 
@@ -224,7 +235,7 @@ class ProductController {
    */
   getProductByBarcode = asyncHandler(async (req, res, next) => {
     const product = await productService.getProductByBarcode(req.tenantId, req.params.code);
-    
+
     res.status(200).json(formatResponse(product));
   });
 
@@ -235,7 +246,7 @@ class ProductController {
   searchProducts = asyncHandler(async (req, res, next) => {
     const { q, limit } = req.query;
     const products = await productService.searchProducts(req.tenantId, q, limit);
-    
+
     res.status(200).json(formatResponse(products));
   });
 }

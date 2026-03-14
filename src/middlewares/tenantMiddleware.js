@@ -28,7 +28,7 @@ const getTenantCached = async (tenantId) => {
     console.log('[TENANT CACHE DEBUG] Tenant encontrado en BD:', tenant ? 'SI' : 'NO');
     if (tenant) {
       tenantData = tenant.toJSON();
-      cacheService.set(cacheKey, tenantData, TENANT_CACHE_TTL).catch(() => {});
+      cacheService.set(cacheKey, tenantData, TENANT_CACHE_TTL).catch(() => { });
     }
   } else {
     console.log('[TENANT CACHE DEBUG] Tenant encontrado en cache');
@@ -41,7 +41,7 @@ const tenantMiddleware = async (req, res, next) => {
   try {
     console.log('[TENANT DEBUG] Verificando tenant para usuario:', req.user ? req.user.id : 'NO USER');
     console.log('[TENANT DEBUG] Usuario isSuperadmin:', req.user ? req.user.isSuperadmin : false);
-    
+
     // For regular users (owner, admin, supervisor, cashier, viewer), always use their assigned tenant
     if (!req.user.isSuperadmin && req.user.role !== 'superadmin') {
       console.log('[TENANT DEBUG] Usuario regular, verificando tenantId...');
@@ -51,32 +51,32 @@ const tenantMiddleware = async (req, res, next) => {
       }
       req.tenantId = req.user.tenantId;
       console.log('[TENANT DEBUG] TenantId asignado:', req.tenantId);
-      
+
       // Verify tenant exists and is active (using cache)
       console.log('[TENANT DEBUG] Buscando datos del tenant...');
       const tenantData = await getTenantCached(req.user.tenantId);
       console.log('[TENANT DEBUG] Tenant obtenido:', tenantData ? 'SI' : 'NO');
-      
+
       if (!tenantData) {
         console.log('[TENANT DEBUG] ERROR: Tenant no encontrado');
         throw new AuthenticationError('Tenant no encontrado');
       }
-      
+
       console.log('[TENANT DEBUG] Verificando si tenant está activo:', tenantData.is_active);
       if (!tenantData.is_active) {
         throw new AuthenticationError('La empresa está inactiva');
       }
-      
+
       console.log('[TENANT DEBUG] Verificando estado de suscripción:', tenantData.subscription_status);
       // Check subscription status
       if (tenantData.subscription_status === 'suspended') {
         throw new AuthenticationError('Suscripción suspendida');
       }
-      
+
       if (tenantData.subscription_status === 'cancelled') {
         throw new AuthenticationError('Suscripción cancelada');
       }
-      
+
       // Check if trial period has expired
       if (tenantData.subscription_status === 'trial' && tenantData.trial_ends_at) {
         const trialEnd = new Date(tenantData.trial_ends_at);
@@ -84,31 +84,35 @@ const tenantMiddleware = async (req, res, next) => {
           throw new AuthenticationError('Período de prueba expirado');
         }
       }
-      
+      // Attach plan limits
+      const plansConfig = require('../config/plans');
+      tenantData.limits = plansConfig[tenantData.plan] || plansConfig.free;
+
       req.tenant = tenantData;
       console.log('[TENANT DEBUG] Usuario regular verificado. Pasando al siguiente middleware...');
       return next();
     }
-    
+
     // For superadmin users, use their own tenant (or null if they don't have one)
     // Superadmin should NOT be able to see other tenants' data
     if (req.user.isSuperadmin || req.user.role === 'superadmin') {
       console.log('[TENANT DEBUG] Usuario superadmin detectado');
       // Use superadmin's own tenant if they have one, otherwise null
       req.tenantId = req.user.tenantId;
-      
+
       // If superadmin has a tenant, verify it's active (using cache)
       if (req.tenantId) {
-        const tenantData = await getTenantCached(req.tenantId);
         if (tenantData && tenantData.is_active) {
+          const plansConfig = require('../config/plans');
+          tenantData.limits = plansConfig[tenantData.plan] || plansConfig.free;
           req.tenant = tenantData;
         }
       }
-      
+
       console.log('[TENANT DEBUG] Superadmin verificado. Pasando al siguiente middleware...');
       return next();
     }
-    
+
     // This should never be reached, but just in case
     throw new AuthenticationError('Tipo de usuario no reconocido');
   } catch (error) {

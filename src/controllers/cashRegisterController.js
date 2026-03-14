@@ -3,6 +3,7 @@
  * Handles cash register endpoints for shift management
  */
 const cashRegisterService = require('../services/cashRegisterService');
+const limitService = require('../services/limitService');
 const { asyncHandler, formatResponse } = require('../utils/helpers');
 
 class CashRegisterController {
@@ -11,6 +12,11 @@ class CashRegisterController {
    * Open a new cash register shift
    */
   openShift = asyncHandler(async (req, res, next) => {
+    // Check SaaS plan limit for concurrent open cash registers
+    if (!req.user.isSuperadmin && req.user.role !== 'superadmin') {
+      await limitService.checkResourceLimit(req.tenantId, req.tenant.plan, 'cashRegisters');
+    }
+
     const result = await cashRegisterService.openShift(
       req.tenantId,
       req.body,
@@ -76,7 +82,7 @@ class CashRegisterController {
         req.tenantId,
         req.user.id
       );
-      
+
       return res.status(200).json(formatResponse(result ? [result] : []));
     }
 

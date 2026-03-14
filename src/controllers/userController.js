@@ -7,6 +7,7 @@ const { NotFoundError, ConflictError, ValidationError } = require('../utils/erro
 const { asyncHandler } = require('../utils/helpers');
 const { formatResponse } = require('../utils/helpers');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+const limitService = require('../services/limitService');
 
 class UserController {
   /**
@@ -15,7 +16,7 @@ class UserController {
    */
   getUsers = asyncHandler(async (req, res, next) => {
     const { page = 1, limit = 20 } = req.query;
-    
+
     const { count, rows } = await User.findAndCountAll({
       where: { tenant_id: req.tenantId },
       attributes: { exclude: ['password_hash'] },
@@ -41,10 +42,10 @@ class UserController {
     }
 
     const tenant = await Tenant.findByPk(req.tenantId);
-    const userCount = await User.count({ where: { tenant_id: req.tenantId } });
-    
-    if (userCount >= tenant.max_users) {
-      throw new ValidationError(`Límite de usuarios alcanzado para el plan ${tenant.plan}`);
+
+    // Check SaaS plan limit for users
+    if (!req.user.isSuperadmin && req.user.role !== 'superadmin') {
+      await limitService.checkResourceLimit(req.tenantId, tenant.plan || 'free', 'users');
     }
 
     const { email, password, name, role, is_active } = req.body;
@@ -69,13 +70,13 @@ class UserController {
     const currentUserLevel = roleHierarchy[req.user.role] || 0;
     const targetUserLevel = roleHierarchy[role] || 0;
 
-    
+
     if (req.user.role !== 'superadmin') {
       // CRITICAL SECURITY: Only superadmin can create admin or owner users
       if (role === 'admin' || role === 'owner') {
         throw new ValidationError('Solo los superadministradores pueden crear usuarios con roles administrativos (admin/owner)');
       }
-      
+
       // Regular hierarchy check for other roles
       if (targetUserLevel >= currentUserLevel) {
         throw new ValidationError('No puedes crear usuarios con un nivel de permisos igual o superior al tuyo');
