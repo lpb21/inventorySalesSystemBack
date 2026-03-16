@@ -2,7 +2,7 @@
  * Customer Payment Service
  * Handles customer credit payments (abonos) and balance management
  */
-const { Customer, Sale, sequelize } = require('../models');
+const { Customer, Sale, SaleItem, Product, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const cacheService = require('./cacheService');
 const logger = require('../utils/logger');
@@ -41,7 +41,7 @@ class CustomerPaymentService {
       }
 
       const currentBalance = parseFloat(customer.credit_balance);
-      
+
       // Check if payment exceeds balance
       if (amount > currentBalance) {
         throw new ValidationError(
@@ -168,7 +168,22 @@ class CustomerPaymentService {
         payment_method: 'credit',
         status: 'completed',
       },
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          attributes: ['id', 'product_id', 'quantity', 'unit_price', 'unit_cost', 'subtotal'],
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'name', 'sku', 'unit'],
+            },
+          ],
+        },
+      ],
       order: [['created_at', 'DESC']],
+      distinct: true,
       limit: parseInt(limit),
       offset: getPaginationSkip(page, limit),
     });
@@ -177,7 +192,40 @@ class CustomerPaymentService {
       customer_id: customer.id,
       customer_name: customer.name,
       current_balance: parseFloat(customer.credit_balance),
-      sales: rows,
+      sales: rows.map((sale) => ({
+        id: sale.id,
+        ticket_number: sale.ticket_number,
+        subtotal: parseFloat(sale.subtotal),
+        discount: parseFloat(sale.discount),
+        tax: parseFloat(sale.tax),
+        total: parseFloat(sale.total),
+        note: sale.note,
+        status: sale.status,
+        created_at: (() => {
+          const dateValue = sale.created_at || sale.createdAt;
+          if (!dateValue) return 'Fecha no disponible';
+
+          const d = new Date(dateValue);
+          if (isNaN(d.getTime())) return 'Fecha inválida';
+
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          const hours = String(d.getHours()).padStart(2, '0');
+          const mins = String(d.getMinutes()).padStart(2, '0');
+          return `${day}/${month}/${year} ${hours}:${mins}`;
+        })(),
+        items: sale.items.map((item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.product?.name || 'Producto eliminado',
+          product_sku: item.product?.sku || null,
+          product_unit: item.product?.unit || null,
+          quantity: parseFloat(item.quantity),
+          unit_price: parseFloat(item.unit_price),
+          subtotal: parseFloat(item.subtotal),
+        })),
+      })),
       pagination: formatPagination(page, limit, count),
     };
 
@@ -198,7 +246,7 @@ class CustomerPaymentService {
    */
   async getCustomersWithCredit(tenantId, { page = 1, limit = 20 } = {}) {
     const { getPaginationSkip, formatPagination } = require('../utils/helpers');
-    
+
     // Generate cache key
     const cacheKey = cacheService.getCustomersWithCreditKey(tenantId, page, limit);
 
