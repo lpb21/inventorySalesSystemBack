@@ -209,6 +209,11 @@ const cancelSaleSchema = Joi.object({
   reason: Joi.string().required().max(500),
 });
 
+// Billing schemas
+const createWompiCheckoutSessionSchema = Joi.object({
+  plan_code: Joi.string().valid('basic', 'pro', 'enterprise').required(),
+});
+
 /**
  * Validate supplier data
  */
@@ -257,6 +262,9 @@ module.exports = {
   // Sales
   saleSchema,
   cancelSaleSchema,
+
+  // Billing
+  createWompiCheckoutSessionSchema,
   
   // Suppliers
   supplierSchema,

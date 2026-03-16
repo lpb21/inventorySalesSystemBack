@@ -12,6 +12,7 @@ const FIELD_LABELS = {
   address: 'dirección',
   notes: 'notas',
   note: 'nota',
+  plan_code: 'plan',
   is_active: 'estado activo',
   page: 'página',
   limit: 'límite',

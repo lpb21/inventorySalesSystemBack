@@ -54,5 +54,31 @@ module.exports = {
       maxProducts: parseInt(process.env.PLAN_ENTERPRISE_MAX_PRODUCTS) || 99999,
       maxCashRegisters: parseInt(process.env.PLAN_ENTERPRISE_MAX_CASH_REGISTERS) || 999,
     }
-  }
+  },
+
+  // Billing and payments
+  billing: {
+    gracePeriodDays: parseInt(process.env.BILLING_GRACE_PERIOD_DAYS) || 5,
+    prices: {
+      basic: parseInt(process.env.BILLING_PRICE_BASIC_CENTS) || 4900000,
+      pro: parseInt(process.env.BILLING_PRICE_PRO_CENTS) || 9900000,
+      enterprise: parseInt(process.env.BILLING_PRICE_ENTERPRISE_CENTS) || 19900000,
+    },
+    cycleDays: {
+      basic: parseInt(process.env.BILLING_CYCLE_BASIC_DAYS) || 30,
+      pro: parseInt(process.env.BILLING_CYCLE_PRO_DAYS) || 30,
+      enterprise: parseInt(process.env.BILLING_CYCLE_ENTERPRISE_DAYS) || 30,
+    },
+  },
+
+  wompi: {
+    baseUrl: process.env.WOMPI_BASE_URL || 'https://production.wompi.co',
+    publicKey: process.env.WOMPI_PUBLIC_KEY || '',
+    privateKey: process.env.WOMPI_PRIVATE_KEY || '',
+    integritySecret: process.env.WOMPI_INTEGRITY_SECRET || '',
+    eventsSecret: process.env.WOMPI_EVENTS_SECRET || '',
+    redirectUrl: process.env.WOMPI_REDIRECT_URL || 'http://localhost:5173/billing/checkout-result',
+    enablePaymentLinks: process.env.WOMPI_ENABLE_PAYMENT_LINKS === 'true',
+    skipWebhookSignatureValidation: process.env.WOMPI_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
+  },
 };

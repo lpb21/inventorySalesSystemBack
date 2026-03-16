@@ -16,6 +16,8 @@ const CashRegister = require('./CashRegister');
 const PurchaseOrder = require('./PurchaseOrder');
 const PurchaseOrderItem = require('./PurchaseOrderItem');
 const AuditLog = require('./AuditLog');
+const TenantSubscription = require('./TenantSubscription');
+const BillingWebhookEvent = require('./BillingWebhookEvent');
 
 // =====================
 // Tenant associations
@@ -135,6 +137,15 @@ User.hasMany(AuditLog, { foreignKey: 'user_id', as: 'auditLogs' });
 AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // =====================
+// Billing associations
+// =====================
+Tenant.hasOne(TenantSubscription, { foreignKey: 'tenant_id', as: 'subscription' });
+TenantSubscription.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+Tenant.hasMany(BillingWebhookEvent, { foreignKey: 'tenant_id', as: 'billingWebhookEvents' });
+BillingWebhookEvent.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+// =====================
 // Export all models
 // =====================
 module.exports = {
@@ -152,4 +163,6 @@ module.exports = {
   PurchaseOrder,
   PurchaseOrderItem,
   AuditLog,
+  TenantSubscription,
+  BillingWebhookEvent,
 };
