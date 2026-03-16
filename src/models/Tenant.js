@@ -64,15 +64,10 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: true,
     field: 'stripe_subscription_id',
   },
-  trial_ends_at: {
+  subscription_ends_at: {
     type: DataTypes.DATE,
     allowNull: true,
-    field: 'trial_ends_at',
-  },
-  logo_url: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'logo_url',
+    field: 'subscription_ends_at',
   },
   is_active: {
     type: DataTypes.BOOLEAN,

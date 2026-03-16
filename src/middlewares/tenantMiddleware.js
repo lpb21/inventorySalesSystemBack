@@ -77,11 +77,21 @@ const tenantMiddleware = async (req, res, next) => {
         throw new AuthenticationError('Suscripción cancelada');
       }
 
-      // Check if trial period has expired
-      if (tenantData.subscription_status === 'trial' && tenantData.trial_ends_at) {
-        const trialEnd = new Date(tenantData.trial_ends_at);
-        if (trialEnd < new Date()) {
-          throw new AuthenticationError('Período de prueba expirado');
+      // Check if plan or trial period has expired
+      const expirationDate = tenantData.subscription_ends_at || tenantData.trial_ends_at;
+      if (expirationDate) {
+        const expiresAt = new Date(expirationDate);
+        if (expiresAt < new Date()) {
+          const day = String(expiresAt.getDate()).padStart(2, '0');
+          const month = String(expiresAt.getMonth() + 1).padStart(2, '0');
+          const year = expiresAt.getFullYear();
+          const formattedDate = `${day}/${month}/${year}`;
+
+          const planName = tenantData.plan.toUpperCase();
+          const message = tenantData.plan === 'free'
+            ? `Tu plan ${planName} (Periodo de Prueba) ha expirado el día ${formattedDate}`
+            : `Tu plan ${planName} ha vencido el día ${formattedDate}. Por favor renueva tu suscripción.`;
+          throw new AuthenticationError(message);
         }
       }
       // Attach plan limits

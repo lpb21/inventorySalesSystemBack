@@ -35,8 +35,28 @@ class AuthService {
     }
 
     // Check if tenant is active (skip for superadmin who has null tenant_id)
-    if (user.tenant_id && user.tenant && !user.tenant.is_active) {
-      throw new AuthenticationError('Empresa inactiva');
+    if (user.tenant_id && user.tenant) {
+      if (!user.tenant.is_active) {
+        throw new AuthenticationError('Empresa inactiva');
+      }
+
+      // Check if plan or trial period has expired
+      const expirationDate = user.tenant.subscription_ends_at || user.tenant.trial_ends_at;
+      if (expirationDate) {
+        const expiresAt = new Date(expirationDate);
+        if (expiresAt < new Date()) {
+          const day = String(expiresAt.getDate()).padStart(2, '0');
+          const month = String(expiresAt.getMonth() + 1).padStart(2, '0');
+          const year = expiresAt.getFullYear();
+          const formattedDate = `${day}/${month}/${year}`;
+
+          const planName = user.tenant.plan.toUpperCase();
+          const message = user.tenant.plan === 'free'
+            ? `Tu plan ${planName} (Periodo de Prueba) ha expirado el día ${formattedDate}`
+            : `Tu plan ${planName} ha vencido el día ${formattedDate}. Por favor renueva tu suscripción.`;
+          throw new AuthenticationError(message);
+        }
+      }
     }
 
     // Update last login
