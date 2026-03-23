@@ -6,7 +6,7 @@ const { asyncHandler, formatResponse } = require('../utils/helpers');
 
 class BillingController {
   /**
-   * POST /v1/billing/wompi/checkout-session
+   * POST /v1/billing/epayco/checkout-session
    */
   createCheckoutSession = asyncHandler(async (req, res) => {
     const { plan_code } = req.body;
@@ -21,10 +21,10 @@ class BillingController {
   });
 
   /**
-   * POST /v1/billing/wompi/webhook
+   * POST /v1/billing/epayco/webhook
    */
-  handleWompiWebhook = asyncHandler(async (req, res) => {
-    const result = await billingService.processWompiWebhook(req.body);
+  handleEpaycoWebhook = asyncHandler(async (req, res) => {
+    const result = await billingService.processEpaycoWebhook(req.body);
     res.status(200).json({
       success: true,
       data: result,

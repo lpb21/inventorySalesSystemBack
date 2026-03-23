@@ -27,6 +27,27 @@ const registerSchema = Joi.object({
   slug: Joi.string().alphanum().lowercase().min(3).max(50).required(),
 });
 
+const changePasswordSchema = Joi.object({
+  current_password: Joi.string().required().min(6).messages({
+    'any.required': 'La contraseña actual es requerida',
+    'string.empty': 'La contraseña actual es requerida',
+    'string.min': 'La contraseña actual debe tener al menos 6 caracteres',
+  }),
+  new_password: Joi.string().required().min(6).messages({
+    'any.required': 'La nueva contraseña es requerida',
+    'string.empty': 'La nueva contraseña es requerida',
+    'string.min': 'La nueva contraseña debe tener al menos 6 caracteres',
+  }),
+});
+
+const resetPasswordSchema = Joi.object({
+  new_password: Joi.string().required().min(6).messages({
+    'any.required': 'La nueva contraseña es requerida',
+    'string.empty': 'La nueva contraseña es requerida',
+    'string.min': 'La nueva contraseña debe tener al menos 6 caracteres',
+  }),
+});
+
 // Tenant schemas
 const createTenantSchema = Joi.object({
   name: requiredString.max(255),
@@ -76,10 +97,6 @@ const updateUserSchema = Joi.object({
   name: optionalString,
   role: Joi.string().valid('owner', 'admin', 'supervisor', 'cashier').optional(),
   is_active: optionalBoolean,
-});
-
-const resetPasswordSchema = Joi.object({
-  password: Joi.string().required().min(6),
 });
 
 // Category schemas
@@ -238,39 +255,40 @@ module.exports = {
   // Auth
   loginSchema,
   registerSchema,
-  
+  changePasswordSchema,
+  resetPasswordSchema,
+
   // Tenant
   createTenantSchema,
   updateTenantSchema,
-  
+
   // Users
   createUserSchema,
   updateUserSchema,
-  resetPasswordSchema,
-  
+
   // Categories
   categorySchema,
   updateCategorySchema,
-  
+
   // Products
   productSchema,
   updateProductSchema,
-  
+
   // Inventory
   inventoryAdjustmentSchema,
-  
+
   // Sales
   saleSchema,
   cancelSaleSchema,
 
   // Billing
   createWompiCheckoutSessionSchema,
-  
+
   // Suppliers
   supplierSchema,
   updateSupplierSchema,
   validateSupplierData,
-  
+
   // Common
   uuidSchema,
   requiredUUID,

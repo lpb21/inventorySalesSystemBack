@@ -224,6 +224,97 @@ class AuthService {
       throw new AuthenticationError('Token inválido');
     }
   }
+
+  /**
+   * Change own password
+   * User must provide current password to change it
+   */
+  async changeOwnPassword(userId, currentPassword, newPassword) {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      throw new AuthenticationError('Usuario no encontrado');
+    }
+
+    // Validate current password
+    const isValidPassword = await user.validatePassword(currentPassword);
+    if (!isValidPassword) {
+      throw new AuthenticationError('La contraseña actual es incorrecta');
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 6) {
+      throw new ValidationError('La nueva contraseña debe tener al menos 6 caracteres');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new ValidationError('La nueva contraseña debe ser diferente a la actual');
+    }
+
+    // Update password
+    await user.update({ password_hash: newPassword });
+
+    return {
+      message: 'Contraseña actualizada correctamente',
+    };
+  }
+
+  /**
+   * Reset user password (Admin/Owner only)
+   * Allows owner/superadmin to reset password of another user
+   */
+  async resetUserPassword(adminUserId, targetUserId, newPassword) {
+    const adminUser = await User.findByPk(adminUserId, {
+      include: [{ model: Tenant, as: 'tenant' }],
+    });
+
+    if (!adminUser) {
+      throw new AuthenticationError('Usuario administrador no encontrado');
+    }
+
+    const targetUser = await User.findByPk(targetUserId, {
+      include: [{ model: Tenant, as: 'tenant' }],
+    });
+
+    if (!targetUser) {
+      throw new ValidationError('Usuario objetivo no encontrado');
+    }
+
+    // Check permissions
+    const isSuperadmin = adminUser.is_superadmin || adminUser.role === 'superadmin';
+    const isOwner = adminUser.role === 'owner';
+
+    if (!isSuperadmin && !isOwner) {
+      throw new AuthenticationError('No tienes permisos para resetear contraseñas');
+    }
+
+    // Owner can only reset passwords within their tenant
+    if (!isSuperadmin && adminUser.tenant_id !== targetUser.tenant_id) {
+      throw new AuthenticationError('Solo puedes resetear contraseñas de usuarios de tu empresa');
+    }
+
+    // Prevent resetting superadmin password (unless you are superadmin)
+    if (targetUser.is_superadmin && !isSuperadmin) {
+      throw new AuthenticationError('No puedes resetear la contraseña de un superadmin');
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 6) {
+      throw new ValidationError('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    // Update password
+    await targetUser.update({ password_hash: newPassword });
+
+    return {
+      message: `Contraseña de ${targetUser.name} (${targetUser.email}) actualizada correctamente`,
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+      },
+    };
+  }
 }
 
 module.exports = new AuthService();

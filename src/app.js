@@ -23,10 +23,33 @@ app.use(rateLimitLogger);
 app.use(generalLimiter);
 
 // CORS configuration
-app.use(cors({
-  origin: env.frontendUrl,
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como mobile apps, curl, Postman, webhooks)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Verificar si el origin está en la lista de permitidos
+    if (env.allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // En desarrollo, permitir cualquier origen localhost
+      if (env.nodeEnv === 'development' && origin.includes('localhost')) {
+        callback(null, true);
+      } else {
+        callback(new Error('No permitido por CORS'));
+      }
+    }
+  },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 horas
+};
+
+app.use(cors(corsOptions));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));

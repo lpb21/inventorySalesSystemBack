@@ -35,41 +35,41 @@ router.use(authMiddleware);
 router.use(tenantMiddleware);
 
 // GET /v1/cash-registers - List shifts (owners/managers see all, cashiers see own)
-router.get('/', 
-  permissionMiddleware('cash_registers:read'),
+router.get('/',
+  permissionMiddleware('cash-registers:read'),
   cashRegisterController.getShifts
 );
 
 // POST /v1/cash-registers/open - Open new shift
 router.post('/open',
   writeOperationsLimiter,
-  permissionMiddleware('cash_registers:create'),
+  permissionMiddleware('cash-registers:open'),
   validate(openShiftSchema),
   cashRegisterController.openShift
 );
 
 // GET /v1/cash-registers/active - Get active shifts
 router.get('/active',
-  permissionMiddleware('cash_registers:read'),
+  permissionMiddleware('cash-registers:read'),
   cashRegisterController.getActiveShifts
 );
 
 // GET /v1/cash-registers/my-active - Get current user's active shift
 router.get('/my-active',
-  permissionMiddleware('cash_registers:read'),
+  permissionMiddleware('cash-registers:read'),
   cashRegisterController.getMyActiveShift
 );
 
 // GET /v1/cash-registers/:id - Get specific shift
 router.get('/:id',
-  permissionMiddleware('cash_registers:read'),
+  permissionMiddleware('cash-registers:read'),
   cashRegisterController.getShiftById
 );
 
 // POST /v1/cash-registers/:id/close - Close shift
 router.post('/:id/close',
   writeOperationsLimiter,
-  permissionMiddleware('cash_registers:update'),
+  permissionMiddleware('cash-registers:close'),
   validate(closeShiftSchema),
   cashRegisterController.closeShift
 );

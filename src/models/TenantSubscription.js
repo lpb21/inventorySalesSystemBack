@@ -20,7 +20,7 @@ const TenantSubscription = sequelize.define('TenantSubscription', {
   provider: {
     type: DataTypes.STRING(30),
     allowNull: false,
-    defaultValue: 'wompi',
+    defaultValue: 'epayco',
   },
   plan_code: {
     type: DataTypes.STRING(50),

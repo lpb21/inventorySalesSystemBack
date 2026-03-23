@@ -23,8 +23,11 @@ module.exports = {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 
-  // Frontend
+  // Frontend & CORS
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  allowedOrigins: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'],
 
   // Redis (optional)
   redis: {
@@ -71,14 +74,15 @@ module.exports = {
     },
   },
 
-  wompi: {
-    baseUrl: process.env.WOMPI_BASE_URL || 'https://production.wompi.co',
-    publicKey: process.env.WOMPI_PUBLIC_KEY || '',
-    privateKey: process.env.WOMPI_PRIVATE_KEY || '',
-    integritySecret: process.env.WOMPI_INTEGRITY_SECRET || '',
-    eventsSecret: process.env.WOMPI_EVENTS_SECRET || '',
-    redirectUrl: process.env.WOMPI_REDIRECT_URL || 'http://localhost:5173/billing/checkout-result',
-    enablePaymentLinks: process.env.WOMPI_ENABLE_PAYMENT_LINKS === 'true',
-    skipWebhookSignatureValidation: process.env.WOMPI_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
+  epayco: {
+    baseUrl: process.env.EPAYCO_BASE_URL || 'https://api.secure.epayco.co',
+    pCustId: process.env.EPAYCO_P_CUST_ID || '',
+    publicKey: process.env.EPAYCO_PUBLIC_KEY || '',
+    privateKey: process.env.EPAYCO_PRIVATE_KEY || '',
+    pKey: process.env.EPAYCO_P_KEY || '',
+    testMode: process.env.EPAYCO_TEST_MODE === 'true',
+    redirectUrl: process.env.EPAYCO_REDIRECT_URL || 'http://localhost:5173/billing/checkout-result',
+    confirmationUrl: process.env.EPAYCO_CONFIRMATION_URL || '',
+    skipWebhookSignatureValidation: process.env.EPAYCO_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
   },
 };

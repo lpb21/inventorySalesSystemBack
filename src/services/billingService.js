@@ -1,6 +1,7 @@
 /**
  * Billing Service
  * Handles checkout creation, webhook processing and overdue subscriptions.
+ * Integrated with ePayco Standard Checkout.
  */
 const axios = require('axios');
 const crypto = require('crypto');
@@ -14,11 +15,6 @@ const { ValidationError, NotFoundError, ConflictError } = require('../utils/erro
 class BillingService {
   buildCheckoutReference(tenantId, planCode) {
     return `invleo-${tenantId}-${planCode}-${Date.now()}`;
-  }
-
-  buildIntegritySignature(reference, amountInCents, currency) {
-    const base = `${reference}${amountInCents}${currency}${env.wompi.integritySecret}`;
-    return crypto.createHash('sha256').update(base).digest('hex');
   }
 
   async createCheckoutSession({ tenantId, user, planCode }) {
@@ -36,12 +32,12 @@ class BillingService {
       throw new ConflictError('No se puede iniciar checkout para una empresa inactiva');
     }
 
-    if (!env.wompi.publicKey) {
-      throw new ValidationError('Falta WOMPI_PUBLIC_KEY en configuracion del servidor');
+    if (!env.epayco.publicKey) {
+      throw new ValidationError('Falta EPAYCO_PUBLIC_KEY en configuracion del servidor');
     }
 
-    if (!env.wompi.integritySecret) {
-      throw new ValidationError('Falta WOMPI_INTEGRITY_SECRET en configuracion del servidor');
+    if (!env.epayco.privateKey) {
+      throw new ValidationError('Falta EPAYCO_PRIVATE_KEY en configuracion del servidor');
     }
 
     const reference = this.buildCheckoutReference(tenantId, planCode);
@@ -50,7 +46,7 @@ class BillingService {
       where: { tenant_id: tenantId },
       defaults: {
         tenant_id: tenantId,
-        provider: 'wompi',
+        provider: 'epayco',
         plan_code: planCode,
         status: 'pending',
         last_checkout_reference: reference,
@@ -64,7 +60,7 @@ class BillingService {
     if (!created) {
       const checkoutAttempts = (subscription.metadata && subscription.metadata.checkoutAttempts) || 0;
       await subscription.update({
-        provider: 'wompi',
+        provider: 'epayco',
         plan_code: planCode,
         status: 'pending',
         last_checkout_reference: reference,
@@ -77,59 +73,62 @@ class BillingService {
       });
     }
 
-    const integrity = this.buildIntegritySignature(reference, plan.amountInCents, plan.currency);
+    // Convert amount from cents to pesos for ePayco
+    const amountInPesos = Math.round(plan.amountInCents / 100);
 
     const result = {
-      provider: 'wompi',
+      provider: 'epayco',
       plan: {
         code: plan.code,
         name: plan.displayName,
         amountInCents: plan.amountInCents,
+        amountInPesos: amountInPesos,
         currency: plan.currency,
-      },
-      checkoutConfig: {
-        reference,
-        amountInCents: plan.amountInCents,
-        currency: plan.currency,
-        publicKey: env.wompi.publicKey,
-        integrity,
-        redirectUrl: env.wompi.redirectUrl,
       },
       checkoutUrl: null,
-      mode: 'widget',
+      mode: 'redirect',
     };
 
-    if (env.wompi.privateKey && env.wompi.enablePaymentLinks) {
-      try {
-        const wompiResponse = await axios.post(
-          `${env.wompi.baseUrl}/v1/payment_links`,
-          {
-            name: `${plan.displayName} - ${tenant.business_name || tenant.name}`,
-            description: `Suscripcion ${plan.displayName} para ${tenant.business_name || tenant.name}`,
-            single_use: false,
-            collect_shipping: false,
-            currency: plan.currency,
-            amount_in_cents: plan.amountInCents,
-            redirect_url: env.wompi.redirectUrl,
-            reference,
+    try {
+      // Create payment reference with ePayco API
+      const epaycoResponse = await axios.post(
+        `${env.epayco.baseUrl}/payment/process`,
+        {
+          name: `${plan.displayName} - ${tenant.business_name || tenant.name}`,
+          description: `Suscripcion ${plan.displayName} para ${tenant.business_name || tenant.name}`,
+          invoice: reference,
+          currency: plan.currency,
+          amount: String(amountInPesos),
+          tax_base: '0',
+          tax: '0',
+          country: 'CO',
+          lang: 'es',
+          external: 'false',
+          extra1: String(tenantId),
+          extra2: planCode,
+          extra3: '',
+          response: env.epayco.redirectUrl,
+          confirmation: env.epayco.confirmationUrl,
+          method_confirmation: 'POST',
+          test: env.epayco.testMode,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${env.epayco.privateKey}`,
+            'Content-Type': 'application/json',
           },
-          {
-            headers: {
-              Authorization: `Bearer ${env.wompi.privateKey}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 15000,
-          }
-        );
-
-        const data = wompiResponse.data && wompiResponse.data.data;
-        if (data && data.id) {
-          result.checkoutUrl = `https://checkout.wompi.co/l/${data.id}`;
-          result.mode = 'payment_link';
+          timeout: 15000,
         }
-      } catch (error) {
-        result.warning = 'No se pudo crear payment link en Wompi. Usa checkoutConfig con el widget.';
+      );
+
+      const data = epaycoResponse.data && epaycoResponse.data.data;
+      if (data && data.invoice) {
+        result.checkoutUrl = `https://secure.epayco.co/validation/v1/reference/${data.invoice}`;
       }
+    } catch (error) {
+      throw new ValidationError(
+        `Error al crear checkout con ePayco: ${error.response?.data?.message || error.message}`
+      );
     }
 
     await auditService.log({
@@ -138,10 +137,10 @@ class BillingService {
       entityType: 'Tenant',
       entityId: tenantId,
       action: 'update',
-      description: `Inicio de checkout Wompi para plan ${planCode}`,
+      description: `Inicio de checkout ePayco para plan ${planCode}`,
       changes: {
         billing: {
-          provider: 'wompi',
+          provider: 'epayco',
           reference,
           mode: result.mode,
           plan: planCode,
@@ -152,74 +151,59 @@ class BillingService {
     return result;
   }
 
-  getNestedValue(source, path) {
-    if (!source || !path) return undefined;
-    return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), source);
-  }
-
   verifyWebhookSignature(payload) {
-    if (env.wompi.skipWebhookSignatureValidation) {
+    if (env.epayco.skipWebhookSignatureValidation) {
       return true;
     }
 
-    if (!env.wompi.eventsSecret) {
-      throw new ValidationError('Falta WOMPI_EVENTS_SECRET en configuracion del servidor');
+    if (!env.epayco.pKey || !env.epayco.pCustId) {
+      throw new ValidationError('Falta EPAYCO_P_KEY o EPAYCO_P_CUST_ID en configuracion del servidor');
     }
 
-    const signature = payload && payload.signature;
-    if (!signature || !Array.isArray(signature.properties) || !signature.checksum) {
+    const signature = payload.x_signature;
+    if (!signature) {
       return false;
     }
 
-    const baseData = payload.data || {};
-    const timestamp = signature.timestamp || payload.timestamp;
-    const concatenated = signature.properties
-      .map((propertyPath) => {
-        const value = this.getNestedValue(baseData, propertyPath) ?? this.getNestedValue(payload, propertyPath);
-        return value === undefined || value === null ? '' : String(value);
-      })
-      .join('');
+    // ePayco signature format: p_cust_id^p_key^x_ref_payco^x_transaction_id^x_amount^x_currency_code
+    const signatureString = `${env.epayco.pCustId}^${env.epayco.pKey}^${payload.x_ref_payco}^${payload.x_transaction_id}^${payload.x_amount}^${payload.x_currency_code}`;
+    const expectedSignature = crypto.createHash('sha256').update(signatureString).digest('hex');
 
-    const hashInput = `${concatenated}${timestamp}${env.wompi.eventsSecret}`;
-    const expectedChecksum = crypto.createHash('sha256').update(hashInput).digest('hex');
-
-    return expectedChecksum === signature.checksum;
+    return expectedSignature === signature;
   }
 
-  mapTransactionToSubscriptionStatus(transactionStatus) {
-    const normalized = String(transactionStatus || '').toUpperCase();
-    if (normalized === 'APPROVED') {
+  mapEpaycoResponseToStatus(epaycoResponse) {
+    const normalized = String(epaycoResponse || '').toLowerCase();
+
+    if (normalized === 'aceptada') {
       return { tenantStatus: 'active', subscriptionStatus: 'active' };
     }
 
-    if (normalized === 'PENDING') {
-      return { tenantStatus: 'past_due', subscriptionStatus: 'past_due' };
-    }
-
-    if (['DECLINED', 'VOIDED', 'ERROR'].includes(normalized)) {
-      return { tenantStatus: 'past_due', subscriptionStatus: 'past_due' };
-    }
-
+    // All other states: Pendiente, Rechazada, Fallida
     return { tenantStatus: 'past_due', subscriptionStatus: 'past_due' };
   }
 
-  async processWompiWebhook(payload) {
+  async processEpaycoWebhook(payload) {
     const isSignatureValid = this.verifyWebhookSignature(payload);
     if (!isSignatureValid) {
       throw new ValidationError('Firma de webhook invalida');
     }
 
-    const eventType = payload.event || payload.type || 'unknown';
-    const transaction = payload.data && payload.data.transaction ? payload.data.transaction : null;
-    const eventId = payload.id || payload.event_id || (transaction && transaction.id);
+    const eventId = payload.x_ref_payco;
+    const reference = payload.x_id_invoice;
+    const transactionStatus = payload.x_response;
 
     if (!eventId) {
-      throw new ValidationError('Webhook sin event_id/transaction.id');
+      throw new ValidationError('Webhook sin x_ref_payco');
+    }
+
+    if (!reference) {
+      throw new ValidationError('Webhook sin x_id_invoice');
     }
 
     const alreadyProcessed = await BillingWebhookEvent.findOne({
       where: {
-        provider: 'wompi',
+        provider: 'epayco',
         event_id: String(eventId),
       },
     });
@@ -231,33 +215,24 @@ class BillingService {
       };
     }
 
-    const reference = transaction ? transaction.reference : null;
-    const transactionStatus = transaction ? transaction.status : 'UNKNOWN';
-
     const eventRecord = await BillingWebhookEvent.create({
-      provider: 'wompi',
+      provider: 'epayco',
       event_id: String(eventId),
-      event_type: String(eventType),
+      event_type: 'payment.confirmation',
       status: 'processing',
       payload,
     });
 
     try {
-      if (!transaction || !reference) {
-        await eventRecord.update({ status: 'ignored', error_message: 'Evento sin transaction/reference' });
-        return {
-          duplicated: false,
-          ignored: true,
-          message: 'Evento ignorado por no incluir referencia de checkout',
-        };
-      }
-
       const subscription = await TenantSubscription.findOne({
         where: { last_checkout_reference: reference },
       });
 
       if (!subscription) {
-        await eventRecord.update({ status: 'ignored', error_message: `No existe checkout para referencia ${reference}` });
+        await eventRecord.update({
+          status: 'ignored',
+          error_message: `No existe checkout para referencia ${reference}`
+        });
         return {
           duplicated: false,
           ignored: true,
@@ -270,7 +245,7 @@ class BillingService {
         throw new NotFoundError('Tenant asociado a la suscripcion no encontrado');
       }
 
-      const mapping = this.mapTransactionToSubscriptionStatus(transactionStatus);
+      const mapping = this.mapEpaycoResponseToStatus(transactionStatus);
       const oldTenantPlan = tenant.plan;
       const oldTenantSubscriptionStatus = tenant.subscription_status;
       const now = new Date();
@@ -281,13 +256,14 @@ class BillingService {
 
       const subscriptionUpdate = {
         status: mapping.subscriptionStatus,
-        external_subscription_id: String(transaction.id || ''),
-        external_customer_id: transaction.customer_email || null,
+        external_subscription_id: String(payload.x_transaction_id || ''),
+        external_customer_id: payload.x_customer_email || null,
         metadata: {
           ...(subscription.metadata || {}),
           lastTransactionStatus: transactionStatus,
-          lastTransactionId: transaction.id,
-          lastWebhookEvent: eventType,
+          lastTransactionId: payload.x_transaction_id,
+          lastWebhookEvent: 'payment.confirmation',
+          epaycoRefPayco: payload.x_ref_payco,
         },
       };
 
@@ -319,7 +295,7 @@ class BillingService {
         entityType: 'Tenant',
         entityId: tenant.id,
         action: 'update',
-        description: `Webhook Wompi procesado: ${transactionStatus}`,
+        description: `Webhook ePayco procesado: ${transactionStatus}`,
         changes: {
           plan: {
             old: oldTenantPlan,
@@ -329,10 +305,10 @@ class BillingService {
             old: oldTenantSubscriptionStatus,
             new: mapping.tenantStatus,
           },
-          wompi: {
+          epayco: {
             reference,
-            transactionId: transaction.id,
-            eventType,
+            transactionId: payload.x_transaction_id,
+            refPayco: payload.x_ref_payco,
           },
         },
       });

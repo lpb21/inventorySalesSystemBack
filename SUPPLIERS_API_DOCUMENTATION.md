@@ -95,14 +95,14 @@ Crea un nuevo proveedor.
 
 **Campos requeridos:**
 - `name`: Nombre del proveedor (máx. 255 caracteres)
-
-**Campos opcionales:**
 - `contact_name`: Nombre del contacto (máx. 255 caracteres)
 - `document`: Documento/RUC/NIT del proveedor (máx. 50 caracteres)
 - `email`: Email del proveedor (debe ser formato válido)
 - `phone`: Teléfono (máx. 50 caracteres)
 - `address`: Dirección (máx. 1000 caracteres)
 - `notes`: Notas adicionales (máx. 1000 caracteres)
+
+**Campos opcionales:**
 - `is_active`: Estado activo (por defecto: true)
 
 ---

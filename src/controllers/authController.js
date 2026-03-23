@@ -50,6 +50,35 @@ class AuthController {
     const newToken = await authService.refreshToken(token);
     res.status(200).json(formatResponse({ token: newToken }));
   });
+
+  /**
+   * POST /v1/auth/change-password
+   * Change own password (authenticated user)
+   */
+  changePassword = asyncHandler(async (req, res, next) => {
+    const { current_password, new_password } = req.body;
+    const result = await authService.changeOwnPassword(
+      req.user.id,
+      current_password,
+      new_password
+    );
+    res.status(200).json(formatResponse(result));
+  });
+
+  /**
+   * POST /v1/auth/reset-password/:userId
+   * Reset user password (owner/superadmin only)
+   */
+  resetPassword = asyncHandler(async (req, res, next) => {
+    const { userId } = req.params;
+    const { new_password } = req.body;
+    const result = await authService.resetUserPassword(
+      req.user.id,
+      userId,
+      new_password
+    );
+    res.status(200).json(formatResponse(result));
+  });
 }
 
 module.exports = new AuthController();

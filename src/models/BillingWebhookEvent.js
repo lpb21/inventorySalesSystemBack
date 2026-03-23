@@ -14,7 +14,7 @@ const BillingWebhookEvent = sequelize.define('BillingWebhookEvent', {
   provider: {
     type: DataTypes.STRING(30),
     allowNull: false,
-    defaultValue: 'wompi',
+    defaultValue: 'epayco',
   },
   event_id: {
     type: DataTypes.STRING(120),

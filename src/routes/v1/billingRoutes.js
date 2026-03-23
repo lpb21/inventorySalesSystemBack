@@ -12,14 +12,14 @@ const { validate } = require('../../middlewares/validationMiddleware');
 const { createWompiCheckoutSessionSchema } = require('../../utils/validators');
 
 // Public webhook endpoint (provider callback)
-router.post('/wompi/webhook', billingController.handleWompiWebhook);
+router.post('/epayco/webhook', billingController.handleEpaycoWebhook);
 
 // Authenticated billing endpoints
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
 router.post(
-  '/wompi/checkout-session',
+  '/epayco/checkout-session',
   roleMiddleware(['owner', 'admin', 'superadmin']),
   validate(createWompiCheckoutSessionSchema),
   billingController.createCheckoutSession
