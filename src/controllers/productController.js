@@ -230,6 +230,26 @@ class ProductController {
   });
 
   /**
+   * GET /v1/products/expiring-soon
+   * Get products expiring in the next 30 days
+   */
+  getExpiringSoon = asyncHandler(async (req, res, next) => {
+    const products = await productService.getExpiringSoonProducts(req.tenantId);
+
+    res.status(200).json(formatResponse(products));
+  });
+
+  /**
+   * GET /v1/products/expired
+   * Get expired products
+   */
+  getExpired = asyncHandler(async (req, res, next) => {
+    const products = await productService.getExpiredProducts(req.tenantId);
+
+    res.status(200).json(formatResponse(products));
+  });
+
+  /**
    * GET /v1/products/barcode/:code
    * Get product by barcode
    */

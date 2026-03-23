@@ -383,6 +383,52 @@ class ProductService {
   }
 
   /**
+   * Get products expiring soon (next 30 days)
+   */
+  async getExpiringSoonProducts(tenantId) {
+    const today = new Date();
+    const in30Days = new Date();
+    in30Days.setDate(today.getDate() + 30);
+
+    const products = await Product.findAll({
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        expiry_date: {
+          [Op.not]: null, // Only products with expiry date
+          [Op.between]: [today, in30Days]
+        },
+      },
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
+      order: [['expiry_date', 'ASC']], // Closest to expiry first
+    });
+
+    return products;
+  }
+
+  /**
+   * Get expired products
+   */
+  async getExpiredProducts(tenantId) {
+    const today = new Date();
+
+    const products = await Product.findAll({
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        expiry_date: {
+          [Op.not]: null, // Only products with expiry date
+          [Op.lt]: today
+        },
+      },
+      include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
+      order: [['expiry_date', 'DESC']], // Most recently expired first
+    });
+
+    return products;
+  }
+
+  /**
    * Search products
    */
   async searchProducts(tenantId, query, limit = 10) {

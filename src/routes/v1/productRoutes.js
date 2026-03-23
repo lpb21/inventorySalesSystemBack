@@ -95,6 +95,8 @@ router.post('/import', uploadLimiter, permissionMiddleware('products:create'), (
 }, productController.bulkImport);
 router.get('/import/progress/:importId', authMiddleware, tenantMiddleware, productController.getImportProgress);
 router.get('/low-stock', permissionMiddleware('products:read'), productController.getLowStock);
+router.get('/expiring-soon', permissionMiddleware('products:read'), productController.getExpiringSoon);
+router.get('/expired', permissionMiddleware('products:read'), productController.getExpired);
 router.get('/search', permissionMiddleware('products:read'), productController.searchProducts);
 router.get('/barcode/:code', permissionMiddleware('products:read'), productController.getProductByBarcode);
 router.get('/:id', permissionMiddleware('products:read'), productController.getProductById);
