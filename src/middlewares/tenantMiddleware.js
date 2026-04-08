@@ -77,23 +77,10 @@ const tenantMiddleware = async (req, res, next) => {
         throw new AuthenticationError('Suscripción cancelada');
       }
 
-      // Check if plan or trial period has expired
-      const expirationDate = tenantData.subscription_ends_at || tenantData.trial_ends_at;
-      if (expirationDate) {
-        const expiresAt = new Date(expirationDate);
-        if (expiresAt < new Date()) {
-          const day = String(expiresAt.getDate()).padStart(2, '0');
-          const month = String(expiresAt.getMonth() + 1).padStart(2, '0');
-          const year = expiresAt.getFullYear();
-          const formattedDate = `${day}/${month}/${year}`;
+      // Note: Detailed subscription validation (dates, periods, etc.) is handled
+      // in authService.js during login using tenant_subscriptions table
+      // This middleware only checks basic status to avoid duplicate database queries
 
-          const planName = tenantData.plan.toUpperCase();
-          const message = tenantData.plan === 'free'
-            ? `Tu plan ${planName} (Periodo de Prueba) ha expirado el día ${formattedDate}`
-            : `Tu plan ${planName} ha vencido el día ${formattedDate}. Por favor renueva tu suscripción.`;
-          throw new AuthenticationError(message);
-        }
-      }
       // Attach plan limits
       const plansConfig = require('../config/plans');
       tenantData.limits = plansConfig[tenantData.plan] || plansConfig.free;

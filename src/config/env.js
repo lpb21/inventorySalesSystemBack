@@ -75,7 +75,7 @@ module.exports = {
   },
 
   epayco: {
-    baseUrl: process.env.EPAYCO_BASE_URL || 'https://api.secure.epayco.co',
+    baseUrl: process.env.EPAYCO_BASE_URL || 'https://apify.epayco.co',
     pCustId: process.env.EPAYCO_P_CUST_ID || '',
     publicKey: process.env.EPAYCO_PUBLIC_KEY || '',
     privateKey: process.env.EPAYCO_PRIVATE_KEY || '',

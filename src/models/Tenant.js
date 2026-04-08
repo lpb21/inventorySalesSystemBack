@@ -54,21 +54,6 @@ const Tenant = sequelize.define('Tenant', {
     values: ['trial', 'active', 'past_due', 'cancelled', 'suspended'],
     field: 'subscription_status',
   },
-  stripe_customer_id: {
-    type: DataTypes.STRING(255),
-    allowNull: true,
-    field: 'stripe_customer_id',
-  },
-  stripe_subscription_id: {
-    type: DataTypes.STRING(255),
-    allowNull: true,
-    field: 'stripe_subscription_id',
-  },
-  subscription_ends_at: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'subscription_ends_at',
-  },
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

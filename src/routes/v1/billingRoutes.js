@@ -14,9 +14,21 @@ const { createWompiCheckoutSessionSchema } = require('../../utils/validators');
 // Public webhook endpoint (provider callback)
 router.post('/epayco/webhook', billingController.handleEpaycoWebhook);
 
+// Public renewal endpoint - validate if email can renew subscription
+router.post('/epayco/renewal/session', billingController.initiateRenewal);
+
+// Public checkout endpoint for anonymous users
+router.post('/epayco/checkout-anonymous', billingController.createAnonymousCheckoutSession);
+
+// Public Smart Checkout v2 endpoint (widget/modal) - supports renewal with renewal_token
+router.post('/epayco/smart-checkout/session', billingController.createSmartCheckoutSession);
+
 // Authenticated billing endpoints
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Get available billing plans
+router.get('/plans', billingController.getPlans);
 
 router.post(
   '/epayco/checkout-session',

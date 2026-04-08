@@ -3,7 +3,7 @@
  * Handles authentication logic
  */
 const jwt = require('jsonwebtoken');
-const { User, Tenant } = require('../models');
+const { User, Tenant, TenantSubscription } = require('../models');
 const { AuthenticationError, ConflictError, ValidationError } = require('../utils/errors');
 const env = require('../config/env');
 const plansConfig = require('../config/plans');
@@ -13,57 +13,202 @@ class AuthService {
    * Login user
    */
   async login(email, password) {
-    // Find user by email
-    const user = await User.findOne({
-      where: { email },
-      include: [{ model: Tenant, as: 'tenant' }],
-    });
+    console.log('[AUTH DEBUG] Starting login process for:', email);
+
+    let user = null;
+
+    try {
+      console.log('[AUTH DEBUG] Attempting to find user with subscription data...');
+
+      // Try to find user with tenant and subscription data
+      user = await User.findOne({
+        where: { email },
+        include: [
+          {
+            model: Tenant,
+            as: 'tenant',
+            include: [
+              {
+                model: TenantSubscription,
+                as: 'subscription',
+                required: false // LEFT JOIN - algunos tenants pueden no tener suscripción aún
+              }
+            ]
+          }
+        ],
+      });
+
+      console.log('[AUTH DEBUG] User found with subscription query:', !!user);
+
+    } catch (dbError) {
+      console.warn('[AUTH DEBUG] Error loading subscription data, falling back to simple query:', dbError.message);
+      console.warn('[AUTH DEBUG] Full error:', dbError);
+
+      try {
+        console.log('[AUTH DEBUG] Attempting fallback query without subscription...');
+
+        // Fallback: simple query without subscription data
+        user = await User.findOne({
+          where: { email },
+          include: [{ model: Tenant, as: 'tenant' }],
+        });
+
+        console.log('[AUTH DEBUG] User found with fallback query:', !!user);
+
+      } catch (fallbackError) {
+        console.error('[AUTH DEBUG] Even fallback query failed:', fallbackError.message);
+        console.error('[AUTH DEBUG] Fallback error details:', fallbackError);
+
+        // Last resort: query user without any includes
+        try {
+          console.log('[AUTH DEBUG] Last resort: querying user without includes...');
+          user = await User.findOne({ where: { email } });
+          console.log('[AUTH DEBUG] User found without includes:', !!user);
+
+          if (user && user.tenant_id) {
+            console.log('[AUTH DEBUG] Loading tenant separately...');
+            user.tenant = await Tenant.findByPk(user.tenant_id);
+            console.log('[AUTH DEBUG] Tenant loaded separately:', !!user.tenant);
+          }
+        } catch (lastResortError) {
+          console.error('[AUTH DEBUG] CRITICAL: Even basic user query failed:', lastResortError);
+          throw new Error(`Database connection error: ${lastResortError.message}`);
+        }
+      }
+    }
+
+    console.log('[AUTH DEBUG] Final user object exists:', !!user);
 
     if (!user) {
+      console.log('[AUTH DEBUG] No user found for email:', email);
       throw new AuthenticationError('Credenciales inválidas');
     }
+
+    console.log('[AUTH DEBUG] Checking if user is active:', user.is_active);
 
     // Check if user is active
     if (!user.is_active) {
       throw new AuthenticationError('Usuario inactivo');
     }
 
+    console.log('[AUTH DEBUG] Validating password...');
+
     // Validate password
     const isValidPassword = await user.validatePassword(password);
+
+    console.log('[AUTH DEBUG] Password validation result:', isValidPassword);
+
     if (!isValidPassword) {
       throw new AuthenticationError('Credenciales inválidas');
     }
 
+    console.log('[AUTH DEBUG] Checking tenant status...');
+
     // Check if tenant is active (skip for superadmin who has null tenant_id)
     if (user.tenant_id && user.tenant) {
+      console.log('[AUTH DEBUG] User has tenant, checking tenant status:', user.tenant.is_active);
+
       if (!user.tenant.is_active) {
         throw new AuthenticationError('Empresa inactiva');
       }
 
-      // Check if plan or trial period has expired
-      const expirationDate = user.tenant.subscription_ends_at || user.tenant.trial_ends_at;
-      if (expirationDate) {
-        const expiresAt = new Date(expirationDate);
-        if (expiresAt < new Date()) {
-          const day = String(expiresAt.getDate()).padStart(2, '0');
-          const month = String(expiresAt.getMonth() + 1).padStart(2, '0');
-          const year = expiresAt.getFullYear();
-          const formattedDate = `${day}/${month}/${year}`;
+      // Check subscription status using the new billing system (if available)
+      const subscription = user.tenant.subscription;
 
-          const planName = user.tenant.plan.toUpperCase();
-          const message = user.tenant.plan === 'free'
-            ? `Tu plan ${planName} (Periodo de Prueba) ha expirado el día ${formattedDate}`
-            : `Tu plan ${planName} ha vencido el día ${formattedDate}. Por favor renueva tu suscripción.`;
-          throw new AuthenticationError(message);
+      console.log('[AUTH DEBUG] Subscription data exists:', !!subscription);
+
+      if (subscription) {
+        console.log('[AUTH DEBUG] Processing subscription validation...');
+        // Use tenant_subscriptions as source of truth
+        const now = new Date();
+
+        // Check if subscription is cancelled
+        if (subscription.status === 'cancelled') {
+          const planName = subscription.plan_code.toUpperCase();
+          throw new AuthenticationError(
+            `Tu suscripción al plan ${planName} ha sido cancelada. Por favor contacta a soporte o renueva tu plan.`
+          );
         }
+
+        // Check if subscription is past due
+        if (subscription.status === 'past_due') {
+          const planName = subscription.plan_code.toUpperCase();
+          const gracePeriod = subscription.grace_until ? new Date(subscription.grace_until) : null;
+
+          if (gracePeriod && gracePeriod > now) {
+            // Still in grace period
+            const daysLeft = Math.ceil((gracePeriod - now) / (1000 * 60 * 60 * 24));
+            throw new AuthenticationError(
+              `Tu pago del plan ${planName} está pendiente. Tienes ${daysLeft} día(s) de gracia para realizar el pago.`
+            );
+          } else {
+            // Grace period expired
+            throw new AuthenticationError(
+              `Tu suscripción al plan ${planName} ha sido suspendida por falta de pago. Por favor renueva tu suscripción.`
+            );
+          }
+        }
+
+        // Check if subscription period has ended
+        if (subscription.current_period_end) {
+          const periodEnd = new Date(subscription.current_period_end);
+          if (periodEnd < now && subscription.status !== 'active') {
+            const day = String(periodEnd.getDate()).padStart(2, '0');
+            const month = String(periodEnd.getMonth() + 1).padStart(2, '0');
+            const year = periodEnd.getFullYear();
+            const formattedDate = `${day}/${month}/${year}`;
+            const planName = subscription.plan_code.toUpperCase();
+
+            throw new AuthenticationError(
+              `Tu suscripción al plan ${planName} venció el ${formattedDate}. Por favor renueva tu suscripción para continuar.`
+            );
+          }
+        }
+      } else {
+        console.log('[AUTH DEBUG] No subscription found - tenant has no billing record, allowing access as FREE plan...');
+        // No subscription found - this could be a legacy tenant or one that hasn't been migrated yet
+        // Allow access but log for monitoring
+        console.log(`[AUTH DEBUG] Tenant ${user.tenant.id} (${user.tenant.name}) has no subscription record - allowing access as FREE plan`);
       }
     }
+
+    console.log('[AUTH DEBUG] Updating last login...');
 
     // Update last login
     await user.update({ last_login: new Date() });
 
+    console.log('[AUTH DEBUG] Generating token...');
+
     // Generate JWT token
     const token = this.generateToken(user);
+
+    console.log('[AUTH DEBUG] Preparing response...');
+
+    // Prepare tenant info with subscription details
+    let tenantInfo = null;
+    if (user.tenant) {
+      tenantInfo = {
+        id: user.tenant.id,
+        name: user.tenant.name,
+        business_name: user.tenant.business_name,
+        plan: user.tenant.plan,
+        limits: plansConfig[user.tenant.plan] || plansConfig.free,
+        address: user.tenant.address,
+        phone: user.tenant.phone,
+      };
+
+      // Add subscription info if available
+      if (user.tenant.subscription) {
+        tenantInfo.subscription = {
+          status: user.tenant.subscription.status,
+          plan_code: user.tenant.subscription.plan_code,
+          current_period_end: user.tenant.subscription.current_period_end,
+          provider: user.tenant.subscription.provider
+        };
+      }
+    }
+
+    console.log('[AUTH DEBUG] Login successful for:', email);
 
     return {
       token,
@@ -72,15 +217,7 @@ class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        tenant: user.tenant ? {
-          id: user.tenant.id,
-          name: user.tenant.name,
-          business_name: user.tenant.business_name,
-          plan: user.tenant.plan,
-          limits: plansConfig[user.tenant.plan] || plansConfig.free,
-          address: user.tenant.address,
-          phone: user.tenant.phone,
-        } : null,
+        tenant: tenantInfo,
       },
     };
   }

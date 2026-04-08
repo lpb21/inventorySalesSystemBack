@@ -84,8 +84,6 @@ class TenantController {
       phone: phone,
       plan: plan,
       subscription_status: 'active',
-      trial_ends_at: trialEndsAt,
-      subscription_ends_at: trialEndsAt,
       is_active: true
     });
 
@@ -111,7 +109,7 @@ class TenantController {
         address: tenant.address,
         phone: tenant.phone,
         plan: tenant.plan,
-        subscription_end_date: tenant.subscription_ends_at,
+        subscription_status: tenant.subscription_status,
       },
       owner: {
         id: user.id,
