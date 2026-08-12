@@ -4,6 +4,18 @@
  */
 require('dotenv').config();
 
+// Fail-fast: en producción, no arrancar con defaults inseguros o variables faltantes
+if (process.env.NODE_ENV === 'production') {
+  const requeridas = ['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+  const faltantes = requeridas.filter((k) => !process.env[k]);
+  if (faltantes.length > 0) {
+    throw new Error(`Faltan variables de entorno obligatorias en producción: ${faltantes.join(', ')}`);
+  }
+  if (process.env.JWT_SECRET === 'default-secret-change-me') {
+    throw new Error('JWT_SECRET no puede usar el valor por defecto en producción');
+  }
+}
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: process.env.PORT || 3000,
@@ -83,6 +95,8 @@ module.exports = {
     testMode: process.env.EPAYCO_TEST_MODE === 'true',
     redirectUrl: process.env.EPAYCO_REDIRECT_URL || 'http://localhost:5173/billing/checkout-result',
     confirmationUrl: process.env.EPAYCO_CONFIRMATION_URL || '',
-    skipWebhookSignatureValidation: process.env.EPAYCO_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
+    skipWebhookSignatureValidation:
+      process.env.NODE_ENV !== 'production' &&
+      process.env.EPAYCO_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
   },
 };

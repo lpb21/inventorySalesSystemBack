@@ -419,7 +419,12 @@ class BillingService {
     const signatureString = `${env.epayco.pCustId}^${env.epayco.pKey}^${payload.x_ref_payco}^${payload.x_transaction_id}^${payload.x_amount}^${payload.x_currency_code}`;
     const expectedSignature = crypto.createHash('sha256').update(signatureString).digest('hex');
 
-    return expectedSignature === signature;
+    const a = Buffer.from(expectedSignature, 'hex');
+    const b = Buffer.from(String(signature), 'hex');
+    if (a.length !== b.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(a, b);
   }
 
   mapEpaycoResponseToStatus(epaycoResponse) {

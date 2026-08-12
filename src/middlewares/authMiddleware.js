@@ -11,50 +11,33 @@ const cacheService = require('../services/cacheService');
 
 const USER_CACHE_TTL = 120; // 2 minutes
 
-/**
- * Get cache key for a user
- */
 const getUserCacheKey = (userId) => `auth:user:${userId}`;
 
 const authMiddleware = async (req, res, next) => {
   try {
-    console.log('[AUTH DEBUG] Petición:', req.method, req.path);
-    console.log('[AUTH DEBUG] Headers:', req.headers);
-    
-    // Get token from header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[AUTH DEBUG] ERROR: No hay token');
       throw new AuthenticationError('No se proporcionó token de autenticación');
     }
-    
-    console.log('[AUTH DEBUG] Token encontrado');
-    
+
     const token = authHeader.split(' ')[1];
-    
-    // Verify token
-    console.log('[AUTH DEBUG] Verificando token...');
     const decoded = jwt.verify(token, env.jwt.secret);
-    console.log('[AUTH DEBUG] Token válido. UserId:', decoded.userId);
-    
-    // Try to get user from cache first
+
     const cacheKey = getUserCacheKey(decoded.userId);
     let userData = await cacheService.get(cacheKey);
-    
+
     if (!userData) {
-      // Cache miss — query DB
       const user = await User.findByPk(decoded.userId);
-      
+
       if (!user) {
         throw new AuthenticationError('Usuario no encontrado');
       }
-      
+
       if (!user.is_active) {
         throw new AuthenticationError('Usuario inactivo');
       }
-      
-      console.log('[AUTH DEBUG] Usuario encontrado en DB:', user.id);
+
       userData = {
         id: user.id,
         userId: user.id,
@@ -64,17 +47,12 @@ const authMiddleware = async (req, res, next) => {
         isSuperadmin: user.is_superadmin,
         is_active: user.is_active,
       };
-      
-      // Store in cache (fire-and-forget)
+
       cacheService.set(cacheKey, userData, USER_CACHE_TTL).catch(() => {});
-    } else {
-      // Cache hit — still validate active status
-      if (!userData.is_active) {
-        throw new AuthenticationError('Usuario inactivo');
-      }
+    } else if (!userData.is_active) {
+      throw new AuthenticationError('Usuario inactivo');
     }
-    
-    // Attach user to request
+
     req.user = {
       id: userData.id,
       userId: userData.id,
@@ -83,11 +61,9 @@ const authMiddleware = async (req, res, next) => {
       role: userData.role,
       isSuperadmin: userData.isSuperadmin,
     };
-    
-    console.log('[AUTH DEBUG] Usuario autenticado exitosamente. Pasando al siguiente middleware...');
+
     next();
   } catch (error) {
-    console.log('[AUTH DEBUG] ERROR en autenticación:', error.message);
     if (error.name === 'JsonWebTokenError') {
       next(new AuthenticationError('Token inválido'));
     } else if (error.name === 'TokenExpiredError') {
@@ -98,9 +74,6 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-/**
- * Invalidate a user's auth cache (call when user is updated/deactivated)
- */
 authMiddleware.invalidateUserCache = async (userId) => {
   await cacheService.invalidateKeys([getUserCacheKey(userId)]);
 };
