@@ -42,22 +42,28 @@ class SaleService {
           throw new NotFoundError(`Producto no encontrado: ${item.product_id}`);
         }
 
+        //Check stock
+        const quantity = parseFloat(item.quantity);
+        if (!(quantity > 0)) {
+          throw new ValidationError(`Cantidad inválida para ${product.name}`);
+        }
+
         // Check stock
-        if (product.stock < item.quantity) {
+        if (parseFloat(product.stock) < quantity) {
           throw new ValidationError(`Stock insuficiente para ${product.name}`);
         }
 
-        // Calculate item total
-        const itemTotal = item.total_price
-          ? parseFloat(item.total_price)
-          : parseFloat(item.quantity) * parseFloat(item.unit_price);
+        // Precio SIEMPRE desde la BD, nunca del cliente
+        const unitPrice = parseFloat(product.price);
+        const itemTotal = Math.round(quantity * unitPrice * 100) / 100;
         calculatedSubtotal += itemTotal;
 
         items.push({
           product_id: product.id,
           product_name: product.name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
+          quantity: quantity,
+          unit_price: unitPrice,
+          unit_cost: parseFloat(product.cost) || 0,
           subtotal: itemTotal,
         });
 
@@ -89,11 +95,19 @@ class SaleService {
       // Bulk create inventory movements inside transaction
       const movements = await InventoryMovement.bulkCreate(movementRecords, { transaction });
 
-      // Calculate totals
-      const subtotal = saleData.subtotal || calculatedSubtotal;
+      // Totales calculados en el servidor (se ignora saleData.subtotal del cliente)
+      const subtotal = Math.round(calculatedSubtotal * 100) / 100;
       const discount = parseFloat(saleData.discount) || 0;
       const tax = parseFloat(saleData.tax) || 0;
-      const total = subtotal - discount + tax;
+
+      if (discount < 0 || tax < 0) {
+        throw new ValidationError('Descuento e impuesto no pueden ser negativos');
+      }
+      if (discount > subtotal) {
+        throw new ValidationError('El descuento no puede superar el subtotal');
+      }
+
+      const total = Math.round((subtotal - discount + tax) * 100) / 100;
 
       // Handle credit sales differently
       const isCreditSale = saleData.payment_method === 'credit';
@@ -517,6 +531,36 @@ class SaleService {
           reason: `Cancelación de venta: ${reason}`,
           reference_id: saleId,
         }, { transaction });
+      }
+
+      // Revertir saldo de crédito si la venta fue a crédito
+      if (sale.payment_method === 'credit' && sale.customer_id) {
+        const customer = await Customer.findOne({
+          where: { id: sale.customer_id, tenant_id: tenantId },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (customer) {
+          const currentBalance = parseFloat(customer.credit_balance) || 0;
+          const newBalance = Math.max(0, currentBalance - parseFloat(sale.total));
+          await customer.update({ credit_balance: newBalance }, { transaction });
+        }
+      }
+
+      // Revertir efectivo de la caja si la venta fue en efectivo
+      if (sale.payment_method === 'cash' && sale.cash_register_id) {
+        const { CashRegister } = require('../models');
+        const cashRegister = await CashRegister.findByPk(sale.cash_register_id, { transaction });
+
+        if (cashRegister && cashRegister.status === 'open') {
+          const newCashAmount = (parseFloat(cashRegister.cash_in_drawer) || 0) - parseFloat(sale.total);
+          const newExpectedAmount = (parseFloat(cashRegister.expected_amount) || 0) - parseFloat(sale.total);
+          await cashRegister.update({
+            cash_in_drawer: newCashAmount,
+            expected_amount: newExpectedAmount,
+          }, { transaction });
+        }
       }
 
       // Update sale status
