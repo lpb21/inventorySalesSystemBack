@@ -524,7 +524,7 @@ class SaleService {
           tenant_id: tenantId,
           product_id: item.product_id,
           user_id: userId,
-          type: 'in',
+          type: 'return',
           quantity: item.quantity,
           stock_before: previousStock,
           stock_after: newStock,
