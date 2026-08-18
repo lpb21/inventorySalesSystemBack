@@ -1,0 +1,12 @@
+services:
+  db-test:
+    image: postgres:16-alpine
+    container_name: invleo-db-test
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: invleo_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data

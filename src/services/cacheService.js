@@ -11,12 +11,14 @@ class CacheService {
     this.client = null;
     this.isConnected = false;
     this.isConnecting = false;
+    this.disabled = process.env.NODE_ENV === 'test' || process.env.REDIS_ENABLED === 'false';
   }
 
   /**
    * Inicializa la conexion con Redis
    */
   async connect() {
+    if (this.disabled) return;
     if (this.client && this.isConnected) {
       return;
     }
@@ -79,6 +81,7 @@ class CacheService {
    * @returns {Promise<object|null>} - Valor cacheado o null
    */
   async get(key) {
+    if (this.disabled) return null;
     const result = await this.getWithMeta(key);
     return result.value;
   }
@@ -89,6 +92,7 @@ class CacheService {
    * @returns {Promise<{value: object|null, hit: boolean}>}
    */
   async getWithMeta(key) {
+    if (this.disabled) return { value: null, hit: false };
     if (!this.isConnected || !this.client) {
       try {
         await Promise.race([
@@ -128,6 +132,7 @@ class CacheService {
    * @param {number} ttl - Tiempo de vida en segundos (opcional)
    */
   async set(key, value, ttl = null) {
+    if (this.disabled) return;
     if (!this.isConnected || !this.client) {
       try {
         await Promise.race([
@@ -162,6 +167,7 @@ class CacheService {
    * @param {string} pattern - Patron de las claves a invalidar
    */
   async invalidate(pattern) {
+    if (this.disabled) return;
     if (!this.isConnected || !this.client) {
       return;
     }
@@ -187,6 +193,7 @@ class CacheService {
    * @param {string[]} keys - Array de claves a invalidar
    */
   async invalidateKeys(keys) {
+    if (this.disabled) return;
     if (!this.isConnected || !this.client || !keys.length) {
       return;
     }
