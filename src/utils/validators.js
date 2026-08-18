@@ -153,7 +153,8 @@ const updateProductSchema = Joi.object({
 const inventoryAdjustmentSchema = Joi.object({
   product_id: requiredUUID,
   quantity: requiredNumber,
-  type: Joi.string().valid('in', 'out', 'adjustment', 'sale', 'waste', 'return', 'transfer').required(),
+  // Tipos válidos alineados con el CHECK constraint de la BD y el modelo InventoryMovement
+  type: Joi.string().valid('sale', 'purchase', 'adjustment', 'waste', 'return', 'transfer').required(),
   reason: Joi.string().optional().max(500),
 });
 
