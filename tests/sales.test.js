@@ -1,6 +1,7 @@
 const db = require('../src/models');
-const { sequelize, Tenant, User, Product, Customer, CashRegister, Sale, SaleItem } = db;
+const { sequelize, Tenant, User, Product, Customer, CashRegister, Sale, SaleItem, InventoryMovement } = db;
 const saleService = require('../src/services/saleService');
+const { resetDb } = require('./dbSetup');
 
 // Siembra los datos mínimos para una prueba y devuelve las entidades creadas
 async function seed() {
@@ -25,7 +26,7 @@ async function seed() {
 }
 
 beforeEach(async () => {
-  await sequelize.sync({ force: true }); // esquema limpio antes de cada test
+  await resetDb();   // ← antes era sequelize.sync({ force: true })
 });
 
 afterAll(async () => {
@@ -92,5 +93,21 @@ describe('Bugs de plata (Fase 2)', () => {
     await saleService.cancelSale(tenant.id, sale.id, cashier.id, 'test reversa caja');
     r = await CashRegister.findByPk(register.id);
     expect(Number(r.cash_in_drawer)).toBe(0);
+  });
+
+  test('la BD rechaza un inventory_movement con type invalido (migracion 001)', async () => {
+    const { tenant, owner, product } = await seed();
+
+    await expect(
+      InventoryMovement.create({
+        tenant_id: tenant.id,
+        product_id: product.id,
+        user_id: owner.id,
+        type: 'in',            // tipo inválido: la BD debe rechazarlo
+        quantity: 1,
+        stock_before: 10,
+        stock_after: 11,
+      })
+    ).rejects.toThrow();
   });
 });
