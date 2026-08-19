@@ -122,10 +122,8 @@ class BillingService {
         extra4: user.id,
       };
 
-      console.log('[EPAYCO DEBUG] Creating PSE payment with reference:', reference);
       const epaycoResponse = await createPaymentSession(pse_info);
 
-      console.log('[EPAYCO DEBUG] ePayco response:', epaycoResponse);
 
       if (epaycoResponse && epaycoResponse.success) {
         // ePayco SDK returns urlbanco (the PSE bank redirect URL)
@@ -228,10 +226,8 @@ class BillingService {
         extra5: 'anonymous-checkout',
       };
 
-      console.log('[EPAYCO DEBUG] Creating anonymous PSE payment with reference:', reference);
       const epaycoResponse = await createPaymentSession(pse_info);
 
-      console.log('[EPAYCO DEBUG] ePayco response:', epaycoResponse);
 
       if (epaycoResponse && epaycoResponse.success) {
         // ePayco SDK returns urlbanco (the PSE bank redirect URL)
@@ -331,10 +327,8 @@ class BillingService {
         method_confirmation: 'POST'
       };
 
-      console.log('[EPAYCO DEBUG] Creating Smart Checkout v2 session with reference:', reference);
       const epaycoResponse = await createPaymentSession(pse_info);
 
-      console.log('[EPAYCO DEBUG] ePayco Smart Checkout response:', JSON.stringify(epaycoResponse, null, 2));
 
       if (epaycoResponse && epaycoResponse.success) {
         // ePayco SDK bank.create() returns urlbanco (PSE redirect URL)
