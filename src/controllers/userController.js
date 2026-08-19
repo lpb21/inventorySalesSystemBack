@@ -8,6 +8,7 @@ const { asyncHandler } = require('../utils/helpers');
 const { formatResponse } = require('../utils/helpers');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const limitService = require('../services/limitService');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 class UserController {
   /**
@@ -192,6 +193,7 @@ class UserController {
       role: role || user.role,
       is_active: is_active !== undefined ? is_active : user.is_active,
     });
+    await authMiddleware.invalidateUserCache(user.id);
 
     res.status(200).json(formatResponse({
       user: {
@@ -247,6 +249,7 @@ class UserController {
     }
 
     await user.update({ is_active: false });
+    await authMiddleware.invalidateUserCache(user.id);
 
     res.status(200).json(formatResponse({ message: 'Usuario eliminado correctamente' }));
   });
@@ -264,9 +267,10 @@ class UserController {
       throw new NotFoundError('Usuario no encontrado');
     }
 
-    const { password } = req.body;
+    const { new_password: password } = req.body;
 
     await user.update({ password_hash: password });
+    await authMiddleware.invalidateUserCache(user.id);
 
     res.status(200).json(formatResponse({ message: 'Contraseña actualizada correctamente' }));
   });
@@ -295,6 +299,7 @@ class UserController {
     }
 
     await user.update({ is_active: !user.is_active });
+    await authMiddleware.invalidateUserCache(user.id);
 
     res.status(200).json(formatResponse({
       user: {
