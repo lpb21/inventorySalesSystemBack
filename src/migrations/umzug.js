@@ -17,7 +17,7 @@ const umzug = new Umzug({
   },
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),
-  logger: console,
+  logger: process.env.NODE_ENV === 'test' ? undefined : console,
 });
 
 module.exports = umzug;

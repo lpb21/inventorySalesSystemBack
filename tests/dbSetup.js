@@ -2,10 +2,11 @@ const { sequelize } = require('../src/models');
 const umzug = require('../src/migrations/umzug');
 
 async function resetDb() {
-  // Borra TODO el esquema (incluye tablas que no son modelos, como ticket_counters y SequelizeMeta)
-  await sequelize.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  // Borra las tablas que sync NO conoce (no son modelos), antes de reconstruir
+  await sequelize.query('DROP TABLE IF EXISTS "SequelizeMeta" CASCADE;');
+  await sequelize.query('DROP TABLE IF EXISTS ticket_counters CASCADE;');
   await sequelize.sync({ force: true }); // recrea las tablas de los modelos
-  await umzug.up();                      // aplica migraciones (constraints, ticket_counters, etc.)
+  await umzug.up();                      // aplica migraciones (ticket_counters, constraints, etc.)
 }
 
 module.exports = { resetDb, sequelize };
