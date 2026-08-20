@@ -111,3 +111,62 @@ describe('Bugs de plata (Fase 2)', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('Numeración de tickets', () => {
+  test('createSale genera ticket_number con formato AÑO-0000001', async () => {
+    const { tenant, owner, product } = await seed();
+
+    const sale = await saleService.createSale(tenant.id, {
+      payment_method: 'cash',
+      payment_received: 100000,
+      subtotal: 1, total: 1,
+      items: [{ product_id: product.id, quantity: 1, unit_price: 1 }],
+    }, owner.id);
+
+    const year = new Date().getFullYear();
+    expect(sale.ticket_number).toBe(`${year}-0000001`);
+  });
+
+  test('el consecutivo incrementa dentro del mismo tenant', async () => {
+    const { tenant, owner, product } = await seed();
+    const year = new Date().getFullYear();
+
+    const sale1 = await saleService.createSale(tenant.id, {
+      payment_method: 'cash', payment_received: 100000, subtotal: 1, total: 1,
+      items: [{ product_id: product.id, quantity: 1, unit_price: 1 }],
+    }, owner.id);
+
+    const sale2 = await saleService.createSale(tenant.id, {
+      payment_method: 'cash', payment_received: 100000, subtotal: 1, total: 1,
+      items: [{ product_id: product.id, quantity: 1, unit_price: 1 }],
+    }, owner.id);
+
+    expect(sale1.ticket_number).toBe(`${year}-0000001`);
+    expect(sale2.ticket_number).toBe(`${year}-0000002`);
+  });
+
+  test('cada tenant tiene su propia numeración (aislamiento)', async () => {
+    const a = await seed();
+    const b = await seed();
+    const year = new Date().getFullYear();
+
+    // Tenant A vende dos veces
+    await saleService.createSale(a.tenant.id, {
+      payment_method: 'cash', payment_received: 100000, subtotal: 1, total: 1,
+      items: [{ product_id: a.product.id, quantity: 1, unit_price: 1 }],
+    }, a.owner.id);
+    const saleA2 = await saleService.createSale(a.tenant.id, {
+      payment_method: 'cash', payment_received: 100000, subtotal: 1, total: 1,
+      items: [{ product_id: a.product.id, quantity: 1, unit_price: 1 }],
+    }, a.owner.id);
+
+    // Tenant B vende una vez: debe arrancar en 0000001, sin verse afectado por A
+    const saleB1 = await saleService.createSale(b.tenant.id, {
+      payment_method: 'cash', payment_received: 100000, subtotal: 1, total: 1,
+      items: [{ product_id: b.product.id, quantity: 1, unit_price: 1 }],
+    }, b.owner.id);
+
+    expect(saleA2.ticket_number).toBe(`${year}-0000002`);   // A va en 2
+    expect(saleB1.ticket_number).toBe(`${year}-0000001`);   // B arranca en 1, aislado
+  });
+});

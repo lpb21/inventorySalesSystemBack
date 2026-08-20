@@ -6,8 +6,10 @@ const { Op } = require('sequelize');
 const { Sale, SaleItem, Product, InventoryMovement, Customer, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+const { generateTicketNumber } = require('./ticketNumberService');
 const cacheService = require('./cacheService');
 const auditService = require('./auditService');
+
 
 
 class SaleService {
@@ -204,8 +206,11 @@ class SaleService {
         }
       }
 
-      // Create sale
+      // Generar número de ticket consecutivo por tenant y año (dentro de la transacción)
+      const ticketNumber = await generateTicketNumber(tenantId, transaction);
+
       const sale = await Sale.create({
+        ticket_number: ticketNumber,
         tenant_id: tenantId,
         user_id: userId,
         customer_id: saleData.customer_id || null,
@@ -265,6 +270,7 @@ class SaleService {
         id: sale.id,
         tenant_id: sale.tenant_id,
         user_id: sale.user_id,
+        ticket_number: sale.ticket_number,
         customer_name: sale.customer_name,
         customer_document: sale.customer_document,
         subtotal: sale.subtotal,
