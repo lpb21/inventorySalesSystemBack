@@ -3,7 +3,7 @@
  * Validates and sets tenant context for the request
  * Uses Redis cache to avoid querying the DB on every request
  */
-const { Tenant } = require('../models');
+const { Tenant, TenantSubscription } = require('../models');
 const { AuthenticationError } = require('../utils/errors');
 const cacheService = require('../services/cacheService');
 const plansConfig = require('../config/plans');
@@ -17,7 +17,9 @@ const getTenantCached = async (tenantId) => {
   let tenantData = await cacheService.get(cacheKey);
 
   if (!tenantData) {
-    const tenant = await Tenant.findByPk(tenantId);
+    const tenant = await Tenant.findByPk(tenantId, {
+      include: [{ model: TenantSubscription, as: 'subscription' }],
+    });
     if (tenant) {
       tenantData = tenant.toJSON();
       cacheService.set(cacheKey, tenantData, TENANT_CACHE_TTL).catch(() => {});
@@ -50,6 +52,21 @@ const tenantMiddleware = async (req, res, next) => {
       }
       if (tenantData.subscription_status === 'cancelled') {
         throw new AuthenticationError('Suscripción cancelada');
+      }
+
+      // Chequeo de vencimiento de suscripción
+      const sub = tenantData.subscription;
+      if (sub && sub.current_period_end) {
+        const now = new Date();
+        const periodEnd = new Date(sub.current_period_end);
+        const graceUntil = sub.grace_until ? new Date(sub.grace_until) : null;
+
+        const isExpired = now > periodEnd;
+        const inGrace = graceUntil ? now <= graceUntil : false;
+
+        if (isExpired && !inGrace) {
+          throw new AuthenticationError('Suscripción vencida. Contacta al administrador para renovar.');
+        }
       }
 
       tenantData.limits = plansConfig[tenantData.plan] || plansConfig.free;
