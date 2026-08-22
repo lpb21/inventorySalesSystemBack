@@ -3,6 +3,7 @@
  */
 const billingService = require('../services/billingService');
 const { asyncHandler, formatResponse } = require('../utils/helpers');
+const logger = require('../utils/logger');
 
 class BillingController {
   /**
@@ -121,7 +122,7 @@ class BillingController {
     if (renewal_token) {
       try {
         await billingService.validateRenewalToken(email, renewal_token);
-        console.log(`[SMART_CHECKOUT] Renovación validada para ${email}`);
+        logger.info('billing', 'Renovación validada', { email });
       } catch (error) {
         return res.status(400).json({
           success: false,

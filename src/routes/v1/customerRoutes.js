@@ -84,7 +84,6 @@ router.post('/', permissionMiddleware('customers:create'), async (req, res, next
     // Si viene un ID en el cuerpo de un POST, el usuario probablemente está intentando editar
     // pero su frontend está llamando a la ruta equivocada o no detectó el ID en el envoltorio.
     if (id || payload.id || req.body?.id) {
-      console.log('[DEBUG CUSTOMERS] POST recibido con ID. Intentando redirigir o actualizar...');
       // Podríamos arrojar un error para que el usuario corrija su frontend,
       // o simplemente buscar y actualizar para ser "misericordiosos".
       // Por ahora, arrojamos error descriptivo.

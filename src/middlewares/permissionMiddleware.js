@@ -111,20 +111,16 @@ const hasRole = (userRole, requiredRoles) => {
 const permissionMiddleware = (permission) => {
   return (req, res, next) => {
     try {
-      console.log('[PERMISSION DEBUG] Verificando permiso:', permission);
-      console.log('[PERMISSION DEBUG] Usuario rol:', req.user ? req.user.role : 'NO USER');
       
       const userRole = req.user.role;
       
       // Owner, admin and superadmin have all permissions
       if (hasRole(userRole, ['owner', 'admin', 'superadmin'])) {
-        console.log('[PERMISSION DEBUG] Usuario con rol privilegiado, permiso concedido');
         return next();
       }
       
       // Check specific permission
       if (!hasPermission(userRole, permission)) {
-        console.log('[PERMISSION DEBUG] ERROR: Usuario sin permisos suficientes');
         return res.status(403).json({
           success: false,
           error: {
@@ -134,10 +130,8 @@ const permissionMiddleware = (permission) => {
         });
       }
       
-      console.log('[PERMISSION DEBUG] Permiso concedido. Pasando al siguiente middleware...');
       next();
     } catch (error) {
-      console.log('[PERMISSION DEBUG] ERROR:', error.message);
       next(error);
     }
   };

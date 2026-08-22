@@ -9,6 +9,7 @@ const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
 const cacheService = require('./cacheService');
 const supplierService = require('./supplierService');
+const logger = require('../utils/logger');
 
 const PRODUCTS_CACHE_TTL = 60; // 1 minute
 
@@ -79,9 +80,8 @@ class ProductService {
     });
 
     // Invalidate products list cache
-    console.log('🗑️  [CACHE CLEAR] Invalidating products cache after creation');
     cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
-      console.warn('❌ [CACHE ERROR] Failed to invalidate products cache:', err.message);
+      logger.warn('products', 'No se pudo invalidar caché de productos', { error: err.message });
     });
 
     return product;
@@ -92,19 +92,15 @@ class ProductService {
    */
   async updateProduct(tenantId, productId, productData, userId) {
     try {
-      console.log('🔄 [PRODUCT UPDATE] Starting update for product:', productId);
-      console.log('🔄 [PRODUCT UPDATE] Received data:', JSON.stringify(productData, null, 2));
       
       const product = await Product.findOne({
         where: { id: productId, tenant_id: tenantId },
       });
 
       if (!product) {
-        console.log('❌ [PRODUCT UPDATE] Product not found:', productId);
         throw new NotFoundError('Producto no encontrado');
       }
 
-      console.log('✅ [PRODUCT UPDATE] Product found:', product.name);
 
       // Define allowed fields for update (exclude system fields)
       const allowedFields = [
@@ -136,35 +132,27 @@ class ProductService {
         }
       });
 
-      console.log('🔧 [PRODUCT UPDATE] Filtered fields:', Object.keys(filteredData));
-      console.log('🔧 [PRODUCT UPDATE] Filtered data:', JSON.stringify(filteredData, null, 2));
 
       // Check category exists and belongs to tenant
       if (filteredData.category_id && filteredData.category_id !== product.category_id) {
-        console.log('🔍 [PRODUCT UPDATE] Checking category:', filteredData.category_id);
         const category = await Category.findOne({
           where: { id: filteredData.category_id, tenant_id: tenantId },
         });
 
         if (!category) {
-          console.log('❌ [PRODUCT UPDATE] Category not found:', filteredData.category_id);
           throw new NotFoundError('Categoría no encontrada');
         }
-        console.log('✅ [PRODUCT UPDATE] Category validated:', category.name);
       }
 
       // Check supplier exists and belongs to tenant
       if (filteredData.supplier_id && filteredData.supplier_id !== product.supplier_id) {
-        console.log('🔍 [PRODUCT UPDATE] Checking supplier:', filteredData.supplier_id);
         const supplier = await Supplier.findOne({
           where: { id: filteredData.supplier_id, tenant_id: tenantId, is_active: true },
         });
 
         if (!supplier) {
-          console.log('❌ [PRODUCT UPDATE] Supplier not found:', filteredData.supplier_id);
           throw new NotFoundError('Proveedor no encontrado');
         }
-        console.log('✅ [PRODUCT UPDATE] Supplier validated:', supplier.name);
       }
 
       // Store old data for audit
@@ -177,36 +165,27 @@ class ProductService {
         stock: product.stock,
       };
 
-      console.log('💾 [PRODUCT UPDATE] Old data stored for audit');
 
       // Check unique constraints if being updated
       if (filteredData.sku && filteredData.sku !== product.sku) {
-        console.log('🔍 [PRODUCT UPDATE] Checking SKU uniqueness:', filteredData.sku);
         const existingSku = await Product.findOne({
           where: { tenant_id: tenantId, sku: filteredData.sku, id: { [Op.ne]: productId } },
         });
         if (existingSku) {
-          console.log('❌ [PRODUCT UPDATE] SKU already in use:', filteredData.sku);
           throw new ValidationError('El SKU ya está en uso');
         }
-        console.log('✅ [PRODUCT UPDATE] SKU is unique');
       }
 
       if (filteredData.barcode && filteredData.barcode !== product.barcode) {
-        console.log('🔍 [PRODUCT UPDATE] Checking barcode uniqueness:', filteredData.barcode);
         const existingBarcode = await Product.findOne({
           where: { tenant_id: tenantId, barcode: filteredData.barcode, id: { [Op.ne]: productId } },
         });
         if (existingBarcode) {
-          console.log('❌ [PRODUCT UPDATE] Barcode already in use:', filteredData.barcode);
           throw new ValidationError('El código de barras ya está en uso');
         }
-        console.log('✅ [PRODUCT UPDATE] Barcode is unique');
       }
 
-      console.log('💾 [PRODUCT UPDATE] Starting database update...');
       await product.update(filteredData);
-      console.log('✅ [PRODUCT UPDATE] Database update completed');
 
       // Log audit for product update
       await auditService.logProductUpdate({
@@ -217,22 +196,16 @@ class ProductService {
         newData: filteredData,
       });
 
-      console.log('📝 [PRODUCT UPDATE] Audit log completed');
 
       // Invalidate products list cache
-      console.log('🗑️  [CACHE CLEAR] Invalidating products cache after update');
       cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
-        console.warn('❌ [CACHE ERROR] Failed to invalidate products cache:', err.message);
+        logger.warn('products', 'No se pudo invalidar caché de productos', { error: err.message });
       });
 
-      console.log('✅ [PRODUCT UPDATE] Update completed successfully');
       return product;
 
     } catch (error) {
-      console.error('❌ [PRODUCT UPDATE] Error during update process:');
-      console.error('❌ [PRODUCT UPDATE] Error name:', error.name);
-      console.error('❌ [PRODUCT UPDATE] Error message:', error.message);
-      console.error('❌ [PRODUCT UPDATE] Error stack:', error.stack);
+      logger.error('products', 'Error al actualizar producto', { error: error.message, stack: error.stack });
       
       // Re-throw the error so it's handled by the error middleware
       throw error;
@@ -284,13 +257,11 @@ class ProductService {
     try {
       const cached = await cacheService.get(cacheKey);
       if (cached) {
-        console.log('🚀 [CACHE HIT] Products data loaded from Redis');
         return cached;
       } else {
-        console.log('💾 [CACHE MISS] Products data will be loaded from database');
       }
     } catch (error) {
-      console.warn('⚠️  [CACHE ERROR] Redis unavailable for products:', error.message);
+      logger.warn('products', 'Redis no disponible para productos', { error: error.message });
     }
 
     const where = { tenant_id: tenantId };

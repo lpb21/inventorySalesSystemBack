@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
 const limitService = require('../services/limitService');
+const logger = require('../utils/logger');
 
 // Event emitter for progress updates
 const importProgress = new EventEmitter();
@@ -20,7 +21,6 @@ class ProductController {
    */
   getImportProgress = asyncHandler(async (req, res, next) => {
     const { importId } = req.params;
-    console.log('[IMPORT DEBUG - SSE] Cliente conectado para seguimiento de importId:', importId);
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -30,13 +30,11 @@ class ProductController {
 
     // Send initial connection message
     const initialMessage = { status: 'connected', importId };
-    console.log('[IMPORT DEBUG - SSE] Enviando mensaje inicial:', initialMessage);
     res.write(`data: ${JSON.stringify(initialMessage)}\n\n`);
 
     // Listen for progress updates
     const handleProgress = (data) => {
       if (data.importId === importId) {
-        console.log('[IMPORT DEBUG - SSE] Enviando actualización al cliente:', data.status, data.progress + '%');
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       }
     };
@@ -45,7 +43,6 @@ class ProductController {
 
     // Clean up on client disconnect
     req.on('close', () => {
-      console.log('[IMPORT DEBUG - SSE] Cliente desconectado de importId:', importId);
       importProgress.removeListener('progress', handleProgress);
       res.end();
     });
@@ -57,13 +54,8 @@ class ProductController {
    */
   bulkImport = async (req, res, next) => {
     try {
-      console.log('[IMPORT DEBUG] Nueva petición de importación recibida');
-      console.log('[IMPORT DEBUG] Archivo:', req.file ? req.file.originalname : 'NO FILE');
-      console.log('[IMPORT DEBUG] TenantId:', req.tenantId);
-      console.log('[IMPORT DEBUG] UserId:', req.user ? req.user.id : 'NO USER');
 
       if (!req.file) {
-        console.log('[IMPORT DEBUG] ERROR: No se proporcionó archivo');
         return res.status(400).json(formatResponse(null, 'No se ha proporcionado ningún archivo CSV'));
       }
 
@@ -73,12 +65,10 @@ class ProductController {
       }
 
       const importId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-      console.log('[IMPORT DEBUG] ImportId generado:', importId);
 
       const results = [];
 
       // Parse CSV file
-      console.log('[IMPORT DEBUG] Iniciando parsing del CSV...');
       await new Promise((resolve, reject) => {
         fs.createReadStream(req.file.path)
           .pipe(csv())
@@ -86,19 +76,15 @@ class ProductController {
           .on('end', resolve)
           .on('error', reject);
       });
-      console.log('[IMPORT DEBUG] CSV parseado. Total de filas:', results.length);
 
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
-      console.log('[IMPORT DEBUG] Archivo temporal eliminado');
 
       if (results.length === 0) {
-        console.log('[IMPORT DEBUG] ERROR: CSV vacío');
         return res.status(400).json(formatResponse(null, 'El archivo CSV está vacío'));
       }
 
       // Set SSE headers
-      console.log('[IMPORT DEBUG] Configurando respuesta SSE...');
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
@@ -111,17 +97,14 @@ class ProductController {
         total: results.length,
         message: 'Importación iniciada'
       })}\n\n`);
-      console.log('[IMPORT DEBUG] Mensaje inicial SSE enviado');
 
       // Process products with real-time updates
-      console.log('[IMPORT DEBUG] Iniciando procesamiento...');
       const importResult = await productService.bulkImportProductsWithProgress(
         importId,
         req.tenantId,
         results,
         req.user.id,
         (progressData) => {
-          console.log('[IMPORT DEBUG] Enviando progreso SSE:', progressData.progress + '%');
           res.write(`data: ${JSON.stringify({
             status: 'processing',
             progress: progressData.progress,
@@ -135,7 +118,6 @@ class ProductController {
       );
 
       // Send final completion message
-      console.log('[IMPORT DEBUG] Importación completada. Enviando mensaje final SSE');
       res.write(`data: ${JSON.stringify({
         status: 'completed',
         progress: 100,
@@ -147,10 +129,9 @@ class ProductController {
         results: importResult
       })}\n\n`);
 
-      console.log('[IMPORT DEBUG] Cerrando conexión SSE');
       res.end();
     } catch (error) {
-      console.error('[IMPORT DEBUG] ERROR en handler:', error);
+      logger.error('products', 'Error en importación CSV', { error: error.message });
 
       // Send error via SSE if headers already sent
       if (res.headersSent) {

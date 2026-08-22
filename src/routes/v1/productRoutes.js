@@ -23,12 +23,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    console.log('[MULTER DEBUG] Configurando destino del archivo');
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    console.log('[MULTER DEBUG] Generando nombre de archivo:', 'products-' + uniqueSuffix + '.csv');
     cb(null, 'products-' + uniqueSuffix + '.csv');
   }
 });
@@ -36,12 +34,9 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    console.log('[MULTER DEBUG] Validando archivo:', file.originalname, 'mimetype:', file.mimetype);
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
-      console.log('[MULTER DEBUG] Archivo CSV válido');
       cb(null, true);
     } else {
-      console.log('[MULTER DEBUG] ERROR: Archivo no es CSV');
       cb(new Error('Solo se permiten archivos CSV'), false);
     }
   },
@@ -54,9 +49,6 @@ router.use(tenantMiddleware);
 
 // Add debug logging middleware
 router.use((req, res, next) => {
-  console.log('[ROUTER DEBUG] Petición procesada por middlewares base. Ruta:', req.method, req.path);
-  console.log('[ROUTER DEBUG] req.user:', req.user ? req.user.id : 'NO USER');
-  console.log('[ROUTER DEBUG] req.tenantId:', req.tenantId);
   next();
 });
 
@@ -64,24 +56,17 @@ router.use((req, res, next) => {
 router.get('/', permissionMiddleware('products:read'), productController.getProducts);
 router.post('/', writeOperationsLimiter, permissionMiddleware('products:create'), validate(productSchema), productController.createProduct);
 router.post('/import', uploadLimiter, permissionMiddleware('products:create'), (req, res, next) => {
-  console.log('[ROUTE DEBUG] Antes de upload.single');
   
   const uploadHandler = upload.single('file');
   
   uploadHandler(req, res, (err) => {
-    console.log('[ROUTE DEBUG] Después de upload.single');
-    console.log('[ROUTE DEBUG] Error:', err ? err.message : 'NINGUNO');
-    console.log('[ROUTE DEBUG] req.file:', req.file ? 'EXISTE' : 'NO EXISTE');
-    console.log('[ROUTE DEBUG] req.body:', req.body);
     
     // Ignorar el error "Field name missing" si el archivo se subió correctamente
     if (err && err.code === 'MISSING_FIELD_NAME' && req.file) {
-      console.log('[ROUTE DEBUG] Error MISSING_FIELD_NAME ignorado porque el archivo existe');
       return next();
     }
     
     if (err) {
-      console.log('[ROUTE DEBUG] Error de Multer:', err);
       return res.status(400).json({
         success: false,
         error: {

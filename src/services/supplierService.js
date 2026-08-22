@@ -8,6 +8,7 @@ const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
 const cacheService = require('./cacheService');
+const logger = require('../utils/logger');
 
 const SUPPLIERS_CACHE_TTL = 60; // 1 minute
 
@@ -30,13 +31,11 @@ class SupplierService {
     try {
       const cached = await cacheService.get(cacheKey);
       if (cached) {
-        console.log('🚀 [CACHE HIT] Suppliers data loaded from Redis:', cacheKey);
         return cached;
       } else {
-        console.log('💾 [CACHE MISS] Suppliers data will be loaded from database:', cacheKey);
       }
     } catch (error) {
-      console.warn('⚠️  [CACHE ERROR] Redis unavailable, loading from database:', error.message);
+      logger.warn('suppliers', 'Redis no disponible', { error: error.message });
     }
 
     const where = { tenant_id: tenantId };
@@ -87,9 +86,8 @@ class SupplierService {
     // Cache result
     try {
       await cacheService.set(cacheKey, result, SUPPLIERS_CACHE_TTL);
-      console.log('✅ [CACHE SAVE] Suppliers data saved to Redis for', SUPPLIERS_CACHE_TTL, 'seconds');
     } catch (error) {
-      console.warn('❌ [CACHE ERROR] Failed to save suppliers to Redis:', error.message);
+      logger.warn('suppliers', 'No se pudo actualizar caché de proveedores', { error: err.message });
     }
 
     return result;
@@ -431,13 +429,11 @@ class SupplierService {
     try {
       const cached = await cacheService.get(cacheKey);
       if (cached) {
-        console.log('🚀 [CACHE HIT] Suppliers select data loaded from Redis');
         return cached;
       } else {
-        console.log('💾 [CACHE MISS] Suppliers select data will be loaded from database');
       }
     } catch (error) {
-      console.warn('⚠️  [CACHE ERROR] Redis unavailable for suppliers select:', error.message);
+      logger.warn('suppliers', 'Redis no disponible', { error: error.message });
     }
 
     const suppliers = await Supplier.findAll({
@@ -457,9 +453,8 @@ class SupplierService {
 
     try {
       await cacheService.set(cacheKey, result, SUPPLIERS_CACHE_TTL);
-      console.log('✅ [CACHE SAVE] Suppliers select data saved to Redis');
     } catch (error) {
-      console.warn('❌ [CACHE ERROR] Failed to save suppliers select to Redis:', error.message);
+      logger.warn('suppliers', 'No se pudo guardar proveedores en caché', { error: error.message });
     }
 
     return result;
@@ -469,12 +464,11 @@ class SupplierService {
    * Invalidate cache for tenant suppliers
    */
   invalidateCache(tenantId) {
-    console.log('🗑️  [CACHE CLEAR] Invalidating suppliers cache for tenant:', tenantId);
     cacheService.invalidate(`suppliers:${tenantId}:*`).catch((err) => {
-      console.warn('❌ [CACHE ERROR] Failed to invalidate suppliers cache:', err.message);
+      logger.warn('suppliers', 'No se pudo invalidar caché de proveedores', { error: err.message });
     });
     cacheService.invalidate(`suppliers:select:${tenantId}`).catch((err) => {
-      console.warn('❌ [CACHE ERROR] Failed to invalidate suppliers select cache:', err.message);
+      logger.warn('suppliers', 'No se pudo invalidar caché de proveedores (select)', { error: err.message });
     });
   }
 }
