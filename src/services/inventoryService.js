@@ -3,7 +3,7 @@
  * Handles inventory business logic
  */
 const { Op } = require('sequelize');
-const { Product, InventoryMovement, Category } = require('../models');
+const { Product, InventoryMovement, Category, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
@@ -288,6 +288,123 @@ class InventoryService {
     });
 
     return products;
+  }
+
+    /**
+   * Despiece / transformación de inventario.
+   * Descuenta un producto origen e incrementa uno o varios productos destino.
+   * Todo ocurre en una transacción: o se aplica completo, o nada.
+   * Merma libre: la suma de destinos puede ser menor al origen (hueso, recortes).
+   *
+   * @param {string} tenantId
+   * @param {object} data - { source_product_id, source_quantity, targets: [{ product_id, quantity }], reason }
+   * @param {string} userId
+   */
+  async transform(tenantId, data, userId) {
+    const { source_product_id, source_quantity, targets, reason } = data;
+
+    // --- Validaciones de entrada ---
+    const sourceQty = parseFloat(source_quantity);
+    if (!(sourceQty > 0)) {
+      throw new ValidationError('La cantidad de origen debe ser mayor a cero');
+    }
+    if (!Array.isArray(targets) || targets.length === 0) {
+      throw new ValidationError('Debe indicar al menos un producto destino');
+    }
+    for (const t of targets) {
+      if (!t.product_id || !(parseFloat(t.quantity) > 0)) {
+        throw new ValidationError('Cada destino requiere product_id y una cantidad mayor a cero');
+      }
+    }
+    // Evitar que un destino sea el mismo origen (crearía un movimiento incoherente)
+    if (targets.some((t) => t.product_id === source_product_id)) {
+      throw new ValidationError('El producto origen no puede ser también un destino');
+    }
+
+    return await sequelize.transaction(async (transaction) => {
+      // --- 1) Cargar y bloquear el producto ORIGEN ---
+      const source = await Product.findOne({
+        where: { id: source_product_id, tenant_id: tenantId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!source) {
+        throw new NotFoundError('Producto origen no encontrado');
+      }
+
+      const sourceStockBefore = parseFloat(source.stock) || 0;
+      if (sourceStockBefore < sourceQty) {
+        throw new ValidationError(
+          `Stock insuficiente en ${source.name}: hay ${sourceStockBefore}, se requieren ${sourceQty}`
+        );
+      }
+
+      // --- 2) Cargar y bloquear todos los productos DESTINO ---
+      const targetProducts = {};
+      for (const t of targets) {
+        const prod = await Product.findOne({
+          where: { id: t.product_id, tenant_id: tenantId },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!prod) {
+          throw new NotFoundError(`Producto destino no encontrado: ${t.product_id}`);
+        }
+        targetProducts[t.product_id] = prod;
+      }
+
+      const movements = [];
+
+      // --- 3) Descontar el ORIGEN y registrar su movimiento ---
+      const sourceStockAfter = sourceStockBefore - sourceQty;
+      await source.update({ stock: sourceStockAfter }, { transaction });
+
+      const sourceMovement = await InventoryMovement.create({
+        tenant_id: tenantId,
+        product_id: source.id,
+        user_id: userId,
+        type: 'transformation',
+        quantity: sourceQty,
+        stock_before: sourceStockBefore,
+        stock_after: sourceStockAfter,
+        reason: reason ? `Despiece (origen): ${reason}` : 'Despiece (origen)',
+      }, { transaction });
+      movements.push(sourceMovement);
+
+      // --- 4) Incrementar cada DESTINO y registrar su movimiento ---
+      for (const t of targets) {
+        const prod = targetProducts[t.product_id];
+        const qty = parseFloat(t.quantity);
+        const before = parseFloat(prod.stock) || 0;
+        const after = before + qty;
+
+        await prod.update({ stock: after }, { transaction });
+
+        const mov = await InventoryMovement.create({
+          tenant_id: tenantId,
+          product_id: prod.id,
+          user_id: userId,
+          type: 'transformation',
+          quantity: qty,
+          stock_before: before,
+          stock_after: after,
+          reference_id: source.id, // enlaza este destino con el origen del despiece
+          reason: reason ? `Despiece (destino): ${reason}` : 'Despiece (destino)',
+        }, { transaction });
+        movements.push(mov);
+      }
+
+      return {
+        source: { product_id: source.id, name: source.name, quantity: sourceQty, stock_after: sourceStockAfter },
+        targets: targets.map((t) => ({
+          product_id: t.product_id,
+          name: targetProducts[t.product_id].name,
+          quantity: parseFloat(t.quantity),
+          stock_after: parseFloat(targetProducts[t.product_id].stock),
+        })),
+        movements_count: movements.length,
+      };
+    });
   }
 }
 

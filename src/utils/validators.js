@@ -154,7 +154,7 @@ const inventoryAdjustmentSchema = Joi.object({
   product_id: requiredUUID,
   quantity: requiredNumber,
   // Tipos válidos alineados con el CHECK constraint de la BD y el modelo InventoryMovement
-  type: Joi.string().valid('sale', 'purchase', 'adjustment', 'waste', 'return', 'transfer').required(),
+  type: Joi.string().valid('sale', 'purchase', 'adjustment', 'waste', 'return', 'transfer', 'transformation').required(),
   reason: Joi.string().optional().max(500),
 });
 
@@ -232,6 +232,18 @@ const createWompiCheckoutSessionSchema = Joi.object({
   plan_code: Joi.string().valid('basic', 'pro', 'enterprise').required(),
 });
 
+const transformSchema = Joi.object({
+  source_product_id: Joi.string().uuid().required(),
+  source_quantity: Joi.number().positive().required(),
+  targets: Joi.array().items(
+    Joi.object({
+      product_id: Joi.string().uuid().required(),
+      quantity: Joi.number().positive().required(),
+    })
+  ).min(1).required(),
+  reason: Joi.string().max(500).optional().allow('', null),
+});
+
 /**
  * Validate supplier data
  */
@@ -293,4 +305,6 @@ module.exports = {
   // Common
   uuidSchema,
   requiredUUID,
+
+  transformSchema
 };

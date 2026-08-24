@@ -59,6 +59,19 @@ class InventoryController {
     
     res.status(200).json(formatResponse({ results }));
   });
+
+    /**
+   * POST /v1/inventory/transform
+   * Despiece: descuenta un producto origen e incrementa productos destino.
+   */
+  transform = asyncHandler(async (req, res) => {
+    const result = await inventoryService.transform(
+      req.tenantId,
+      req.body,
+      req.user.userId
+    );
+    res.status(200).json(formatResponse(result));
+  });
 }
 
 module.exports = new InventoryController();
