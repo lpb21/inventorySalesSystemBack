@@ -145,3 +145,4 @@ docker-compose.override.yml
 *.zip
 .eslintcache
 .stylelintcache
+_legacy/
