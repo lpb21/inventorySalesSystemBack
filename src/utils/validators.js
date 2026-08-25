@@ -244,6 +244,29 @@ const transformSchema = Joi.object({
   reason: Joi.string().max(500).optional().allow('', null),
 });
 
+const createRecipeSchema = Joi.object({
+  name: Joi.string().max(150).required(),
+  source_product_id: Joi.string().uuid().required(),
+  items: Joi.array().items(
+    Joi.object({
+      product_id: Joi.string().uuid().required(),
+      quantity: Joi.number().positive().required(),
+    })
+  ).min(1).required(),
+});
+
+const updateRecipeSchema = Joi.object({
+  name: Joi.string().max(150).optional(),
+  source_product_id: Joi.string().uuid().optional(),
+  is_active: Joi.boolean().optional(),
+  items: Joi.array().items(
+    Joi.object({
+      product_id: Joi.string().uuid().required(),
+      quantity: Joi.number().positive().required(),
+    })
+  ).min(1).optional(),
+}).min(1); // al menos un campo a actualizar
+
 /**
  * Validate supplier data
  */
@@ -306,5 +329,7 @@ module.exports = {
   uuidSchema,
   requiredUUID,
 
-  transformSchema
+  transformSchema,
+  createRecipeSchema,
+  updateRecipeSchema
 };

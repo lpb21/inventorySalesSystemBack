@@ -18,6 +18,8 @@ const PurchaseOrderItem = require('./PurchaseOrderItem');
 const AuditLog = require('./AuditLog');
 const TenantSubscription = require('./TenantSubscription');
 const BillingWebhookEvent = require('./BillingWebhookEvent');
+const Recipe = require('./Recipe');
+const RecipeItem = require('./RecipeItem');
 
 // =====================
 // Tenant associations
@@ -63,6 +65,20 @@ Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 // =====================
 Supplier.hasMany(Product, { foreignKey: 'supplier_id', as: 'products' });
 Product.belongsTo(Supplier, { foreignKey: 'supplier_id', as: 'supplier' });
+
+// Recipe (recetas de despiece)
+Tenant.hasMany(Recipe, { foreignKey: 'tenant_id', as: 'recipes' });
+Recipe.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+// Una receta tiene un producto origen
+Recipe.belongsTo(Product, { foreignKey: 'source_product_id', as: 'sourceProduct' });
+
+// Una receta tiene varios items (destinos)
+Recipe.hasMany(RecipeItem, { foreignKey: 'recipe_id', as: 'items' });
+RecipeItem.belongsTo(Recipe, { foreignKey: 'recipe_id', as: 'recipe' });
+
+// Cada item apunta a un producto destino
+RecipeItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
 
 // =====================
 // User associations
@@ -165,4 +181,6 @@ module.exports = {
   AuditLog,
   TenantSubscription,
   BillingWebhookEvent,
+  Recipe,
+  RecipeItem
 };
