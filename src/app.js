@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const env = require('./config/env');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const { generalLimiter, rateLimitLogger } = require('./middlewares/rateLimitMiddleware');
+const { sequelize } = require('./config/database');
 const routes = require('./routes');
 
 const app = express();
@@ -65,9 +66,39 @@ if (env.nodeEnv === 'development') {
 // API routes with /v1 prefix
 app.use('/v1', routes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check: verifica que el proceso Y sus dependencias críticas respondan
+app.get('/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()), // segundos que lleva viva la app
+    checks: {},
+  };
+
+  // Check de base de datos (crítico)
+  try {
+    await sequelize.authenticate();
+    health.checks.database = 'ok';
+  } catch (error) {
+    health.checks.database = 'error';
+    health.status = 'degraded';
+  }
+
+  // Check de Redis (no crítico: la app funciona sin caché)
+  try {
+    const cacheService = require('./services/cacheService');
+    if (cacheService.isEnabled && cacheService.isEnabled()) {
+      health.checks.cache = cacheService.isConnected && cacheService.isConnected() ? 'ok' : 'disconnected';
+    } else {
+      health.checks.cache = 'disabled';
+    }
+  } catch (error) {
+    health.checks.cache = 'unknown';
+  }
+
+  // Si la BD falló, devolvemos 503 (Service Unavailable) para que el hosting lo detecte
+  const httpStatus = health.status === 'ok' ? 200 : 503;
+  res.status(httpStatus).json(health);
 });
 
 // Root endpoint
