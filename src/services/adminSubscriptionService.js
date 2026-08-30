@@ -16,7 +16,55 @@ class AdminSubscriptionService {
    * @param {string} tenantId - tenant objetivo
    * @param {string} period - 'trial' | 'monthly' | 'quarterly' | 'yearly'
    * @param {string} actorUserId - el superadmin que ejecuta la acción (para auditoría)
+   * @param {string} reason - motivo opcional de la suspensión
    */
+
+    /**
+   * Lista todos los tenants con su estado de suscripción,
+   * para el panel de administración.
+   */
+  async list() {
+    const tenants = await Tenant.findAll({
+      attributes: ['id', 'name', 'business_name', 'email', 'subscription_status', 'is_active', 'created_at'],
+      order: [['created_at', 'DESC']],
+    });
+
+    // Traer las suscripciones para conocer la fecha de vencimiento
+    const subscriptions = await TenantSubscription.findAll({
+      attributes: ['tenant_id', 'plan_code', 'status', 'current_period_end', 'grace_until'],
+    });
+
+    // Mapear por tenant_id para cruzar rápido
+    const subsByTenant = {};
+    subscriptions.forEach(s => { subsByTenant[s.tenant_id] = s; });
+
+    const now = new Date();
+
+    return tenants.map(tenant => {
+      const sub = subsByTenant[tenant.id];
+      const periodEnd = sub?.current_period_end || null;
+
+      // Calcular días restantes (si hay fecha de vencimiento)
+      let daysLeft = null;
+      if (periodEnd) {
+        daysLeft = Math.ceil((new Date(periodEnd) - now) / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        id: tenant.id,
+        name: tenant.name,
+        business_name: tenant.business_name,
+        email: tenant.email,
+        subscription_status: tenant.subscription_status,
+        is_active: tenant.is_active,
+        plan_code: sub?.plan_code || null,
+        current_period_end: periodEnd,
+        days_left: daysLeft,
+        created_at: tenant.created_at,
+      };
+    });
+  }
+
   async activate(tenantId, period, actorUserId) {
     const config = getPeriodConfig(period);
     if (!config) {
@@ -90,6 +138,53 @@ class AdminSubscriptionService {
       current_period_end: result.subscription.current_period_end,
     };
   }
+
+  async deactivate(tenantId, actorUserId, reason = null) {
+    const result = await sequelize.transaction(async (transaction) => {
+      // 1) El tenant debe existir
+      const tenant = await Tenant.findByPk(tenantId, { transaction });
+      if (!tenant) {
+        throw new NotFoundError('Tenant no encontrado');
+      }
+
+      // 2) Actualizar la suscripción a suspended (si existe)
+      const subscription = await TenantSubscription.findOne({
+        where: { tenant_id: tenantId },
+        transaction,
+      });
+      if (subscription) {
+        await subscription.update({ status: 'suspended' }, { transaction });
+      }
+
+      // 3) Sincronizar el estado simple del tenant
+      await tenant.update({
+        subscription_status: 'suspended',
+        is_active: false,
+      }, { transaction });
+
+      return { tenant, subscription };
+    });
+
+    // Invalidar caché para que el bloqueo aplique al instante
+    await tenantMiddleware.invalidateTenantCache(tenantId);
+
+    // Auditoría
+    await auditService.log({
+      tenantId,
+      userId: actorUserId,
+      entityType: 'subscription',
+      entityId: tenantId,
+      action: 'suspend',
+      description: `Tenant suspendido manualmente${reason ? `: ${reason}` : ''}`,
+    });
+
+    return {
+      tenant_id: tenantId,
+      status: 'suspended',
+      is_active: false,
+    };
+  }
+
 }
 
 module.exports = new AdminSubscriptionService();
