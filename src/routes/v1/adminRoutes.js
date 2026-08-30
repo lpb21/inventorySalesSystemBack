@@ -21,6 +21,7 @@ const superadminOnly = (req, res, next) => {
 router.use(authMiddleware);   // debe estar autenticado
 router.use(superadminOnly);   // y ser superadmin
 router.get('/tenants', adminController.listTenants);
+router.get('/audit-logs', adminController.auditLogs);
 router.post('/tenants/:id/activate', adminController.activateTenant);
 router.post('/tenants/:id/deactivate', adminController.deactivateTenant);
 

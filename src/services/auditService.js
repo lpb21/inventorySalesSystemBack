@@ -370,6 +370,30 @@ class AuditService {
     };
   }
 
+    /**
+   * Logs de TODOS los tenants (para el superadmin), paginado.
+   * Trae el usuario que ejecutó la acción y el tenant afectado.
+   */
+  async getGlobalAuditLogs({ page = 1, limit = 30 } = {}) {
+    const { getPaginationSkip, formatPagination } = require('../utils/helpers');
+    const { Tenant } = require('../models');
+
+    const { count, rows } = await AuditLog.findAndCountAll({
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+        { model: Tenant, as: 'tenant', attributes: ['id', 'name', 'business_name'] },
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: getPaginationSkip(page, limit),
+    });
+
+    return {
+      auditLogs: rows,
+      pagination: formatPagination(page, limit, count),
+    };
+  }
+
   /**
    * Get audit logs for a specific entity
    */

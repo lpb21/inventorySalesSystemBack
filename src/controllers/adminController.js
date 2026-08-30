@@ -4,6 +4,7 @@
  */
 const adminSubscriptionService = require('../services/adminSubscriptionService');
 const { asyncHandler, formatResponse } = require('../utils/helpers');
+const auditService = require('../services/auditService');
 
 class AdminController {
   /**
@@ -41,6 +42,19 @@ class AdminController {
       req.user.userId,
       reason
     );
+    res.status(200).json(formatResponse(result));
+  });
+
+    /**
+   * GET /v1/admin/audit-logs
+   * Historial global de auditoría, todos los tenants (solo superadmin).
+   */
+  auditLogs = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 30 } = req.query;
+    const result = await auditService.getGlobalAuditLogs({
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
     res.status(200).json(formatResponse(result));
   });
 }
