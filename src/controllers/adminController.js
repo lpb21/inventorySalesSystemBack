@@ -49,11 +49,13 @@ class AdminController {
    * GET /v1/admin/audit-logs
    * Historial global de auditoría, todos los tenants (solo superadmin).
    */
-  auditLogs = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 30 } = req.query;
+    auditLogs = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 30, tenantId, action } = req.query;
     const result = await auditService.getGlobalAuditLogs({
       page: parseInt(page),
       limit: parseInt(limit),
+      tenantId: tenantId || undefined,
+      action: action || undefined,
     });
     res.status(200).json(formatResponse(result));
   });

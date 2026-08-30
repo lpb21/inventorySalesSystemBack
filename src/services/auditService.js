@@ -370,15 +370,21 @@ class AuditService {
     };
   }
 
-    /**
-   * Logs de TODOS los tenants (para el superadmin), paginado.
-   * Trae el usuario que ejecutó la acción y el tenant afectado.
+     /**
+   * Logs de TODOS los tenants (para el superadmin), paginado y con filtros.
+   * @param {object} opts - { page, limit, tenantId, action }
    */
-  async getGlobalAuditLogs({ page = 1, limit = 30 } = {}) {
+  async getGlobalAuditLogs({ page = 1, limit = 30, tenantId, action } = {}) {
     const { getPaginationSkip, formatPagination } = require('../utils/helpers');
     const { Tenant } = require('../models');
 
+    // Construir filtros dinámicamente
+    const where = {};
+    if (tenantId) where.tenant_id = tenantId;
+    if (action) where.action = action;
+
     const { count, rows } = await AuditLog.findAndCountAll({
+      where,
       include: [
         { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
         { model: Tenant, as: 'tenant', attributes: ['id', 'name', 'business_name'] },
