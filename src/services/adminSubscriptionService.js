@@ -24,7 +24,35 @@ class AdminSubscriptionService {
    * para el panel de administración.
    */
   async list() {
+    const { User } = require('../models');
+    const { Op } = require('sequelize');
+
+        // Identificar los tenants que tienen un usuario superadmin (para excluirlos).
+    const superadminUsers = await User.findAll({
+      where: {
+        [Op.or]: [
+          { is_superadmin: true },
+          { role: 'superadmin' },
+        ],
+      },
+      attributes: ['tenant_id'],
+    });
+    const superadminTenantIds = superadminUsers
+      .map(u => u.tenant_id)
+      .filter(Boolean);
+
     const tenants = await Tenant.findAll({
+      where: {
+        [Op.and]: [
+          // Excluir tenants atados a un usuario superadmin (si los hubiera)
+          superadminTenantIds.length > 0
+            ? { id: { [Op.notIn]: superadminTenantIds } }
+            : {},
+          // Excluir el tenant global de administración (superadmin sin tenant real)
+          { email: { [Op.or]: [{ [Op.notILike]: '%global-admin%' }, { [Op.is]: null }] } },
+          { name: { [Op.notILike]: '%Global Admin%' } },
+        ],
+      },
       attributes: ['id', 'name', 'business_name', 'email', 'subscription_status', 'is_active', 'created_at'],
       order: [['created_at', 'DESC']],
     });
