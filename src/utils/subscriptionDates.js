@@ -12,6 +12,7 @@ const PERIODS = {
   trial:     { days: 7,   status: 'trial'  },
   monthly:   { days: 30,  status: 'active' },
   quarterly: { days: 90,  status: 'active' },
+  biannual:  { days: 180, status: 'active' },
   yearly:    { days: 365, status: 'active' },
 };
 

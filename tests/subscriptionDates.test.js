@@ -9,6 +9,7 @@ describe('subscriptionDates - getPeriodConfig', () => {
     expect(getPeriodConfig('trial')).toEqual({ days: 7, status: 'trial' });
     expect(getPeriodConfig('monthly')).toEqual({ days: 30, status: 'active' });
     expect(getPeriodConfig('quarterly')).toEqual({ days: 90, status: 'active' });
+    expect(getPeriodConfig('biannual')).toEqual({ days: 180, status: 'active' });
     expect(getPeriodConfig('yearly')).toEqual({ days: 365, status: 'active' });
   });
 
