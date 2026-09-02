@@ -24,6 +24,7 @@ router.get('/tenants', adminController.listTenants);
 router.get('/audit-logs', adminController.auditLogs);
 router.post('/tenants/:id/activate', adminController.activateTenant);
 router.post('/tenants/:id/deactivate', adminController.deactivateTenant);
+router.post('/tenants', adminController.createTenant);
 
 
 module.exports = router;

@@ -8,6 +8,15 @@ const auditService = require('../services/auditService');
 
 class AdminController {
   /**
+   * POST /v1/admin/tenants
+   * Crea un cliente completo (tenant + owner + suscripción). Solo superadmin.
+   */
+  createTenant = asyncHandler(async (req, res) => {
+    const result = await adminSubscriptionService.createTenant(req.body, req.user.userId);
+    res.status(201).json(formatResponse(result));
+  });
+  
+  /**
    * POST /v1/admin/tenants/:id/activate
    * Activa o renueva la suscripción de un tenant.
    */

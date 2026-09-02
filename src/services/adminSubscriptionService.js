@@ -4,7 +4,7 @@
  * Actualiza tenant_subscriptions Y tenants.subscription_status (mantiene sincronizadas
  * las dos fuentes), y deja rastro en audit_logs.
  */
-const { sequelize, Tenant, TenantSubscription } = require('../models');
+const { sequelize, Tenant, TenantSubscription, User } = require('../models');
 const { getPeriodConfig, calculatePeriodEnd } = require('../utils/subscriptionDates');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const tenantMiddleware = require('../middlewares/tenantMiddleware');
@@ -91,6 +91,87 @@ class AdminSubscriptionService {
         created_at: tenant.created_at,
       };
     });
+  }
+
+    /**
+   * Crea un cliente completo desde el panel admin: tenant + usuario owner + suscripción activa.
+   * Todo en una transacción. El período define la vigencia inicial.
+   * @param {object} data - { business_name, slug, owner_name, owner_email, owner_password, period }
+   * @param {string} actorUserId - el superadmin que crea (para auditoría)
+   */
+  async createTenant(data, actorUserId) {
+    const { business_name, slug, owner_name, owner_email, owner_password, period } = data;
+
+    // Validar el período
+    const config = getPeriodConfig(period);
+    if (!config) {
+      throw new ValidationError(`Periodo inválido: "${period}".`);
+    }
+
+    // Validaciones de unicidad
+    const existingTenant = await Tenant.findOne({ where: { slug } });
+    if (existingTenant) {
+      throw new ValidationError('El identificador de empresa (slug) ya está en uso');
+    }
+    const existingUser = await User.findOne({ where: { email: owner_email } });
+    if (existingUser) {
+      throw new ValidationError('El correo electrónico ya está registrado');
+    }
+
+    const now = new Date();
+    const periodEnd = calculatePeriodEnd(config.days, now);
+
+    const result = await sequelize.transaction(async (transaction) => {
+      // 1) Crear el tenant (arranca activo, plan enterprise = todas las funciones)
+      const tenant = await Tenant.create({
+        name: business_name,
+        slug,
+        business_name,
+        plan: 'enterprise',
+        subscription_status: config.status,
+        is_active: true,
+      }, { transaction });
+
+      // 2) Crear el usuario owner (el hook beforeCreate hashea la contraseña)
+      const owner = await User.create({
+        tenant_id: tenant.id,
+        email: owner_email,
+        password_hash: owner_password,
+        name: owner_name,
+        role: 'owner',
+        is_active: true,
+      }, { transaction });
+
+      // 3) Crear la suscripción con el período elegido
+      const subscription = await TenantSubscription.create({
+        tenant_id: tenant.id,
+        provider: 'manual',
+        plan_code: period,
+        status: config.status,
+        current_period_start: now,
+        current_period_end: periodEnd,
+      }, { transaction });
+
+      return { tenant, owner, subscription };
+    });
+
+    // Auditoría (fuera de la transacción)
+    await auditService.log({
+      tenantId: result.tenant.id,
+      userId: actorUserId,
+      entityType: 'tenant',
+      entityId: result.tenant.id,
+      action: 'create',
+      description: `Cliente creado manualmente: ${business_name} (owner: ${owner_email}, periodo: ${period})`,
+    });
+
+    return {
+      tenant_id: result.tenant.id,
+      business_name: result.tenant.business_name,
+      owner_email: result.owner.email,
+      period,
+      current_period_end: periodEnd,
+    };
   }
 
   async activate(tenantId, period, actorUserId) {
