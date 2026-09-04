@@ -127,6 +127,7 @@ class AdminSubscriptionService {
         name: business_name,
         slug,
         business_name,
+        email: owner_email,
         plan: 'enterprise',
         subscription_status: config.status,
         is_active: true,
