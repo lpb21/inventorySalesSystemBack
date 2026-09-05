@@ -9,6 +9,7 @@ const { getPeriodConfig, calculatePeriodEnd } = require('../utils/subscriptionDa
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const tenantMiddleware = require('../middlewares/tenantMiddleware');
 const auditService = require('./auditService');
+const { seedDefaultCategories } = require('../utils/defaultCategories');
 
 class AdminSubscriptionService {
   /**
@@ -152,6 +153,9 @@ class AdminSubscriptionService {
         current_period_start: now,
         current_period_end: periodEnd,
       }, { transaction });
+
+      // 4) Sembrar categorías por defecto (evita el "estado vacío" al primer ingreso)
+      await seedDefaultCategories(tenant.id, transaction);
 
       return { tenant, owner, subscription };
     });

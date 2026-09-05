@@ -1,8 +1,9 @@
 const db = require('../src/models');
-const { Tenant, TenantSubscription } = db;
+const { Tenant, TenantSubscription, Category } = db;
 const adminSubscriptionService = require('../src/services/adminSubscriptionService');
-const { createTenant } = require('./helpers');
+const { createTenant, uniqueSuffix } = require('./helpers');
 const { resetDb } = require('./dbSetup');
+const { DEFAULT_CATEGORIES } = require('../src/utils/defaultCategories');
 
 beforeEach(async () => {
   await resetDb();
@@ -78,5 +79,31 @@ describe('Activación de suscripción (admin)', () => {
     await expect(
       adminSubscriptionService.activate(fakeId, 'monthly', owner.id)
     ).rejects.toThrow(/no encontrado/i);
+  });
+});
+
+describe('createTenant siembra categorías por defecto', () => {
+  test('un cliente nuevo nace con las categorías por defecto', async () => {
+    const s = uniqueSuffix();
+    const result = await adminSubscriptionService.createTenant({
+      business_name: 'Salsamentaría Test',
+      slug: `test${s}`,
+      owner_name: 'Owner Test',
+      owner_email: `owner${s}@t.com`,
+      owner_password: 'secret123',
+      period: 'monthly',
+    }, 'actor-test');
+
+    const cats = await Category.findAll({ where: { tenant_id: result.tenant_id } });
+
+    expect(cats).toHaveLength(DEFAULT_CATEGORIES.length);
+    expect(cats.map((c) => c.name).sort()).toEqual([...DEFAULT_CATEGORIES].sort());
+    expect(cats.every((c) => c.is_active === true)).toBe(true);
+    expect(cats.every((c) => c.tenant_id === result.tenant_id)).toBe(true);
+  });
+
+  test('la lista por defecto tiene 7 categorías e incluye Gaseosas y refrescos', () => {
+    expect(DEFAULT_CATEGORIES).toHaveLength(7);
+    expect(DEFAULT_CATEGORIES).toContain('Gaseosas y refrescos');
   });
 });
