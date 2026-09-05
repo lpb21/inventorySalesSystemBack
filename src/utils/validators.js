@@ -102,7 +102,7 @@ const updateUserSchema = Joi.object({
 // Category schemas
 const categorySchema = Joi.object({
   name: requiredString.max(100),
-  description: Joi.string().optional().max(500),
+  description: Joi.string().optional().max(500).allow(null, ''),
   icon: optionalString.max(50),
   is_active: optionalBoolean.default(true),
 });
