@@ -71,6 +71,11 @@ const CashRegister = sequelize.define('CashRegister', {
     allowNull: true,
     field: 'closed_at',
   },
+  closing_notes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'closing_notes',
+  }
 }, {
   tableName: 'cash_registers',
   indexes: [

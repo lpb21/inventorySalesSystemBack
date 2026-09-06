@@ -19,7 +19,7 @@ const openShiftSchema = Joi.object({
     'any.required': 'El monto de apertura es requerido',
     'number.min': 'El monto de apertura no puede ser negativo'
   }),
-  notes: Joi.string().max(500).optional()
+  notes: Joi.string().max(500).optional().allow('', null)
 });
 
 const closeShiftSchema = Joi.object({
@@ -27,7 +27,7 @@ const closeShiftSchema = Joi.object({
     'any.required': 'El monto de cierre es requerido',
     'number.min': 'El monto de cierre no puede ser negativo'
   }),
-  notes: Joi.string().max(500).optional()
+  notes: Joi.string().max(500).optional().allow('', null)
 });
 
 // All routes require authentication and tenant context

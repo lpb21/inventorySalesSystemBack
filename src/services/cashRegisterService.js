@@ -132,6 +132,7 @@ class CashRegisterService {
         cash_in_drawer: closingAmount,
         status: 'closed',
         closed_at: new Date(),
+        closing_notes: closingData.notes || null,
       }, { transaction });
 
       // Log audit
