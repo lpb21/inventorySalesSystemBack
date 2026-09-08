@@ -25,6 +25,23 @@ router.get('/', permissionMiddleware('customers:read'), async (req, res, next) =
     const tenantId = req.tenant?.id;
     const { page = 1, limit = 20, search, is_active } = req.query;
 
+    // Sin tenant (p. ej. superadmin) no hay clientes que listar.
+    // Evita construir where con tenant_id undefined, que hace fallar a Sequelize (500).
+    if (!tenantId) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          customers: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            totalPages: 0,
+          },
+        },
+      });
+    }
+
     const where = { tenant_id: tenantId };
     if (search) {
       where.name = { [require('sequelize').Op.iLike]: `%${search}%` };
