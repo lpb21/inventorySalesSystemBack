@@ -14,6 +14,11 @@ const routes = require('./routes');
 
 const app = express();
 
+// Desactivar ETag: la API sirve datos vivos (stock, turno, ventas). Con ETag,
+// el navegador revalida y recibe 304 con el cuerpo viejo en caché, mostrando
+// stock desactualizado tras una venta. Sin ETag, cada GET responde 200 fresco.
+app.disable('etag');
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
