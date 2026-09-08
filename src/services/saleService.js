@@ -255,6 +255,11 @@ class SaleService {
 
       await transaction.commit();
 
+      // Invalidar caché de productos: el stock cambió con la venta (fire-and-forget)
+      cacheService.invalidate(
+        cacheService.getProductsPattern(tenantId)
+      ).catch(() => {});
+
       // Log audit asynchronously (fire-and-forget, don't slow down the response)
       for (let i = 0; i < movements.length; i++) {
         auditService.logInventoryMovement({
@@ -585,6 +590,11 @@ class SaleService {
       }, { transaction });
 
       await transaction.commit();
+
+      // Invalidar caché de productos: el stock se restauró con la cancelación (fire-and-forget)
+      cacheService.invalidate(
+        cacheService.getProductsPattern(tenantId)
+      ).catch(() => {});
 
       // Invalidate cache if it was a credit sale
       if (sale.payment_method === 'credit' && sale.customer_id) {
