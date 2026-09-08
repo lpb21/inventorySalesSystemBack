@@ -291,6 +291,12 @@ class SaleService {
           unit_price: item.unit_price,
           subtotal: item.subtotal,
         })),
+        // Stock ya confirmado por producto (calculado dentro de la transacción).
+        // Permite al front actualizar la caché sin releer y evitar la carrera de lectura.
+        updated_products: stockUpdates.map(({ product, newStock }) => ({
+          id: product.id,
+          stock: newStock,
+        })),
       };
     } catch (error) {
       await transaction.rollback();
@@ -517,6 +523,7 @@ class SaleService {
 
     try {
       // Restore stock for each item
+      const updatedProducts = [];
       for (const item of sale.items) {
         const product = await Product.findByPk(item.product_id, { transaction });
         // Ensure stock is a valid number, default to 0 if null/undefined
@@ -524,6 +531,7 @@ class SaleService {
         const newStock = previousStock + parseFloat(item.quantity);
 
         await product.update({ stock: newStock }, { transaction });
+        updatedProducts.push({ id: item.product_id, stock: newStock });
 
         // Record inventory movement
         await InventoryMovement.create({
@@ -591,7 +599,9 @@ class SaleService {
         );
       }
 
-      return this.getSaleById(tenantId, saleId);
+      const cancelledSale = await this.getSaleById(tenantId, saleId);
+      const plain = cancelledSale?.toJSON ? cancelledSale.toJSON() : cancelledSale;
+      return { ...plain, updated_products: updatedProducts };
     } catch (error) {
       await transaction.rollback();
       throw error;
