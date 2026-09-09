@@ -535,8 +535,14 @@ class ProductService {
           if (categoryMap.has(categoryName)) {
             categoryId = categoryMap.get(categoryName);
           } else {
-            results.errors.push({ row: rowNum, error: `Categoría "${row.category}" no encontrada` });
-            continue;
+            // Auto-crear la categoría (igual que proveedores) para no bloquear el import
+            const newCategory = await Category.create({
+              tenant_id: tenantId,
+              name: row.category.trim(),
+              description: 'Creada automáticamente durante importación de productos',
+            });
+            categoryId = newCategory.id;
+            categoryMap.set(categoryName, categoryId);
           }
         }
 

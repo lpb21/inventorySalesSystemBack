@@ -10,6 +10,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const limitService = require('../services/limitService');
 const logger = require('../utils/logger');
+const { normalizeRow } = require('../utils/csvHeaders');
 
 // Event emitter for progress updates
 const importProgress = new EventEmitter();
@@ -72,7 +73,7 @@ class ProductController {
       await new Promise((resolve, reject) => {
         fs.createReadStream(req.file.path)
           .pipe(csv())
-          .on('data', (data) => results.push(data))
+          .on('data', (data) => results.push(normalizeRow(data)))
           .on('end', resolve)
           .on('error', reject);
       });
