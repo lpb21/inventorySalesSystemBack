@@ -129,6 +129,40 @@ class CategoryService {
     
     return { message: 'Categoría eliminada correctamente' };
   }
+
+  /**
+   * Find or create category by name for import operations.
+   * Busca por nombre (case-insensitive) sin filtrar is_active:
+   * si existe pero está inactiva, la reactiva; si no existe, la crea.
+   */
+  async findOrCreateCategoryByName(tenantId, categoryName) {
+    if (!categoryName || categoryName.trim() === '') {
+      return null;
+    }
+
+    let category = await Category.findOne({
+      where: {
+        tenant_id: tenantId,
+        name: { [Op.iLike]: categoryName.trim() },
+      },
+    });
+
+    if (category) {
+      if (!category.is_active) {
+        await category.update({ is_active: true });
+      }
+      return category;
+    }
+
+    category = await Category.create({
+      tenant_id: tenantId,
+      name: categoryName.trim(),
+      description: 'Creada automáticamente durante importación de productos',
+      is_active: true,
+    });
+
+    return category;
+  }
 }
 
 module.exports = new CategoryService();

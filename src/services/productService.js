@@ -9,6 +9,7 @@ const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
 const cacheService = require('./cacheService');
 const supplierService = require('./supplierService');
+const categoryService = require('./categoryService');
 const logger = require('../utils/logger');
 
 const PRODUCTS_CACHE_TTL = 60; // 1 minute
@@ -535,14 +536,17 @@ class ProductService {
           if (categoryMap.has(categoryName)) {
             categoryId = categoryMap.get(categoryName);
           } else {
-            // Auto-crear la categoría (igual que proveedores) para no bloquear el import
-            const newCategory = await Category.create({
-              tenant_id: tenantId,
-              name: row.category.trim(),
-              description: 'Creada automáticamente durante importación de productos',
-            });
-            categoryId = newCategory.id;
-            categoryMap.set(categoryName, categoryId);
+            // Auto-crear/reactivar la categoría (igual que proveedores) para no bloquear el import
+            try {
+              const newCategory = await categoryService.findOrCreateCategoryByName(tenantId, row.category);
+              if (newCategory) {
+                categoryId = newCategory.id;
+                categoryMap.set(categoryName, categoryId);
+              }
+            } catch (error) {
+              results.errors.push({ row: rowNum, error: `Error creando categoría "${row.category}": ${error.message}` });
+              continue;
+            }
           }
         }
 
@@ -712,16 +716,25 @@ class ProductService {
           if (categoryMap.has(categoryName)) {
             categoryId = categoryMap.get(categoryName);
           } else {
-            results.errors.push({ row: rowNum, error: `Categoría "${row.category}" no encontrada` });
-            onProgress({
-              status: 'processing',
-              progress: Math.round(((i + 1) / productsData.length) * 100),
-              processed: i + 1,
-              successCount: results.success.length,
-              errorCount: results.errors.length,
-              message: `Procesando fila ${i + 1} de ${productsData.length}...`
-            });
-            continue;
+            // Auto-crear/reactivar la categoría (igual que proveedores) para no bloquear el import
+            try {
+              const newCategory = await categoryService.findOrCreateCategoryByName(tenantId, row.category);
+              if (newCategory) {
+                categoryId = newCategory.id;
+                categoryMap.set(categoryName, categoryId); // Add to map for future rows
+              }
+            } catch (error) {
+              results.errors.push({ row: rowNum, error: `Error creando categoría "${row.category}": ${error.message}` });
+              onProgress({
+                status: 'processing',
+                progress: Math.round(((i + 1) / productsData.length) * 100),
+                processed: i + 1,
+                successCount: results.success.length,
+                errorCount: results.errors.length,
+                message: `Procesando fila ${i + 1} de ${productsData.length}...`
+              });
+              continue;
+            }
           }
         }
 
