@@ -609,6 +609,26 @@ class ProductService {
           continue;
         }
 
+        // Validar y normalizar tipo, unidad y fecha (acepta español) con mensajes claros,
+        // en vez de dejar que reviente el check constraint de la BD con un error técnico.
+        const typeResult = normalizeType(row.type);
+        if (!typeResult.valid) {
+          results.errors.push({ row: rowNum, error: `Tipo inválido "${row.type}". Usa: unidad, peso o porción` });
+          continue;
+        }
+
+        const unitResult = normalizeUnit(row.unit);
+        if (!unitResult.valid) {
+          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, l o ml` });
+          continue;
+        }
+
+        const expiryResult = normalizeDate(row.expiry_date);
+        if (!expiryResult.valid) {
+          results.errors.push({ row: rowNum, error: `Fecha de vencimiento inválida "${row.expiry_date}". Usa el formato AAAA-MM-DD` });
+          continue;
+        }
+
         // Create the product
         const product = await Product.create({
           tenant_id: tenantId,
@@ -622,10 +642,10 @@ class ProductService {
           cost,
           stock,
           min_stock: minStock,
-          unit: row.unit || 'und',
-          type: row.type || 'unit',
+          unit: unitResult.value,
+          type: typeResult.value,
           image_url: row.image_url ? row.image_url.trim() : null,
-          expiry_date: row.expiry_date ? row.expiry_date.trim() : null,
+          expiry_date: expiryResult.value,
           is_active: true,
         });
 
