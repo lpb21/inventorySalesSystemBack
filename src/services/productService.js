@@ -10,6 +10,7 @@ const auditService = require('./auditService');
 const cacheService = require('./cacheService');
 const supplierService = require('./supplierService');
 const categoryService = require('./categoryService');
+const { normalizeType, normalizeUnit, normalizeDate } = require('../utils/csvValues');
 const logger = require('../utils/logger');
 
 const PRODUCTS_CACHE_TTL = 60; // 1 minute
@@ -829,8 +830,52 @@ class ProductService {
           continue;
         }
 
-        if (isNaN(stock) || stock < 0) {
+                if (isNaN(stock) || stock < 0) {
           results.errors.push({ row: rowNum, error: 'Stock inválido' });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        // Validar y normalizar tipo, unidad y fecha (acepta español) con mensajes claros,
+        // en vez de dejar que reviente el check constraint de la BD con un error técnico.
+        const typeResult = normalizeType(row.type);
+        if (!typeResult.valid) {
+          results.errors.push({ row: rowNum, error: `Tipo inválido "${row.type}". Usa: unidad, peso o porción` });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        const unitResult = normalizeUnit(row.unit);
+        if (!unitResult.valid) {
+          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, l o ml` });
+          onProgress({
+            status: 'processing',
+            progress: Math.round(((i + 1) / productsData.length) * 100),
+            processed: i + 1,
+            successCount: results.success.length,
+            errorCount: results.errors.length,
+            message: `Procesando fila ${i + 1} de ${productsData.length}...`
+          });
+          continue;
+        }
+
+        const expiryResult = normalizeDate(row.expiry_date);
+        if (!expiryResult.valid) {
+          results.errors.push({ row: rowNum, error: `Fecha de vencimiento inválida "${row.expiry_date}". Usa el formato AAAA-MM-DD` });
           onProgress({
             status: 'processing',
             progress: Math.round(((i + 1) / productsData.length) * 100),
@@ -855,10 +900,10 @@ class ProductService {
           cost,
           stock,
           min_stock: minStock,
-          unit: row.unit || 'und',
-          type: row.type || 'unit',
+          unit: unitResult.value,
+          type: typeResult.value,
           image_url: row.image_url ? row.image_url.trim() : null,
-          expiry_date: row.expiry_date ? row.expiry_date.trim() : null,
+          expiry_date: expiryResult.value,
           is_active: true,
         });
 
