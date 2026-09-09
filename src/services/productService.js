@@ -367,6 +367,7 @@ class ProductService {
       where: {
         tenant_id: tenantId,
         is_active: true,
+        stock: { [Op.gt]: 0 }, // Solo productos con stock: sin stock no son un problema accionable
         expiry_date: {
           [Op.not]: null, // Only products with expiry date
           [Op.between]: [today, in30Days]
@@ -389,6 +390,7 @@ class ProductService {
       where: {
         tenant_id: tenantId,
         is_active: true,
+        stock: { [Op.gt]: 0 }, // Solo productos con stock: sin stock no son un problema accionable
         expiry_date: {
           [Op.not]: null, // Only products with expiry date
           [Op.lt]: today
