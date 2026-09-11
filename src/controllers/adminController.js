@@ -55,6 +55,20 @@ class AdminController {
   });
 
     /**
+   * POST /v1/admin/tenants/:id/reset-owner-password
+   * Resetea la contraseña del propietario (owner) de un tenant. Solo superadmin.
+   */
+  resetOwnerPassword = asyncHandler(async (req, res) => {
+    const { new_password } = req.body;
+    const result = await adminSubscriptionService.resetOwnerPassword(
+      req.params.id,
+      new_password,
+      req.user.userId
+    );
+    res.status(200).json(formatResponse(result));
+  });
+
+    /**
    * GET /v1/admin/audit-logs
    * Historial global de auditoría, todos los tenants (solo superadmin).
    */

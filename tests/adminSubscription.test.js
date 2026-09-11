@@ -1,5 +1,5 @@
 const db = require('../src/models');
-const { Tenant, TenantSubscription, Category } = db;
+const { Tenant, TenantSubscription, Category, User } = db;
 const adminSubscriptionService = require('../src/services/adminSubscriptionService');
 const { createTenant, uniqueSuffix } = require('./helpers');
 const { resetDb } = require('./dbSetup');
@@ -79,6 +79,41 @@ describe('Activación de suscripción (admin)', () => {
     await expect(
       adminSubscriptionService.activate(fakeId, 'monthly', owner.id)
     ).rejects.toThrow(/no encontrado/i);
+  });
+});
+
+describe('resetOwnerPassword (admin)', () => {
+  test('resetea la contraseña del owner y permite validar la nueva', async () => {
+    const { tenant, owner } = await createTenant('A');
+
+    const result = await adminSubscriptionService.resetOwnerPassword(
+      tenant.id,
+      'nuevaClave123',
+      owner.id
+    );
+
+    expect(result.owner_user_id).toBe(owner.id);
+    expect(result.owner_email).toBe(owner.email);
+
+    const reloaded = await User.findByPk(owner.id);
+    expect(await reloaded.validatePassword('nuevaClave123')).toBe(true);
+  });
+
+  test('rechaza una contraseña menor a 6 caracteres', async () => {
+    const { tenant, owner } = await createTenant('A');
+
+    await expect(
+      adminSubscriptionService.resetOwnerPassword(tenant.id, '123', owner.id)
+    ).rejects.toThrow(/al menos 6 caracteres/i);
+  });
+
+  test('rechaza un tenant sin propietario', async () => {
+    const s = uniqueSuffix();
+    const tenant = await Tenant.create({ name: 'Tenant Sin Owner', slug: `noowner${s}` });
+
+    await expect(
+      adminSubscriptionService.resetOwnerPassword(tenant.id, 'clave123', 'actor-test')
+    ).rejects.toThrow(/no se encontró el propietario/i);
   });
 });
 

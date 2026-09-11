@@ -67,10 +67,25 @@ class AdminSubscriptionService {
     const subsByTenant = {};
     subscriptions.forEach(s => { subsByTenant[s.tenant_id] = s; });
 
+    // Traer los propietarios (owner) de cada tenant para poder resetear su contraseña
+    const tenantIds = tenants.map(t => t.id);
+    const owners = await User.findAll({
+      where: {
+        tenant_id: { [Op.in]: tenantIds },
+        role: 'owner',
+      },
+      attributes: ['id', 'tenant_id', 'name', 'email'],
+    });
+    const ownerByTenant = {};
+    owners.forEach(o => {
+      if (!ownerByTenant[o.tenant_id]) ownerByTenant[o.tenant_id] = o;
+    });
+
     const now = new Date();
 
     return tenants.map(tenant => {
       const sub = subsByTenant[tenant.id];
+      const owner = ownerByTenant[tenant.id];
       const periodEnd = sub?.current_period_end || null;
 
       // Calcular días restantes (si hay fecha de vencimiento)
@@ -90,8 +105,52 @@ class AdminSubscriptionService {
         current_period_end: periodEnd,
         days_left: daysLeft,
         created_at: tenant.created_at,
+        owner_user_id: owner?.id || null,
+        owner_name: owner?.name || null,
+        owner_email: owner?.email || null,
       };
     });
+  }
+
+    /**
+   * Resetea la contraseña del usuario propietario (rol owner) de un tenant.
+   * Usado por el superadmin desde el panel de suscripciones cuando el owner
+   * pierde su contraseña.
+   * @param {string} tenantId - tenant objetivo
+   * @param {string} newPassword - nueva contraseña (se hashea en el hook beforeUpdate)
+   * @param {string} actorUserId - el superadmin que ejecuta la acción (para auditoría)
+   */
+  async resetOwnerPassword(tenantId, newPassword, actorUserId) {
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      throw new ValidationError('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    const owner = await User.findOne({
+      where: { tenant_id: tenantId, role: 'owner' },
+    });
+
+    if (!owner) {
+      throw new NotFoundError('No se encontró el propietario de este tenant');
+    }
+
+    await owner.update({ password_hash: newPassword });
+
+    // Auditoría (fuera de la transacción; no debe tumbar la operación si falla)
+    await auditService.log({
+      tenantId,
+      userId: actorUserId,
+      entityType: 'user',
+      entityId: owner.id,
+      action: 'reset_password',
+      description: `Contraseña del propietario ${owner.name} (${owner.email}) reseteada por superadmin`,
+    });
+
+    return {
+      owner_user_id: owner.id,
+      owner_name: owner.name,
+      owner_email: owner.email,
+      message: `Contraseña de ${owner.name} reseteada correctamente`,
+    };
   }
 
     /**
