@@ -748,6 +748,8 @@ class BillingService {
 
   async enforceOverdueSubscriptions() {
     const now = new Date();
+
+    // 1) Membresías pagadas en mora: gracia vencida → cancelar y degradar a free
     const overdueSubscriptions = await TenantSubscription.findAll({
       where: {
         status: { [Op.in]: ['past_due', 'pending'] },
@@ -755,7 +757,16 @@ class BillingService {
       },
     });
 
+    // 2) Trials que vencieron sin renovar → cancelar el acceso
+    const expiredTrials = await TenantSubscription.findAll({
+      where: {
+        status: 'trial',
+        current_period_end: { [Op.not]: null, [Op.lt]: now },
+      },
+    });
+
     let updated = 0;
+
     for (const subscription of overdueSubscriptions) {
       const tenant = await Tenant.findByPk(subscription.tenant_id);
       if (!tenant) continue;
@@ -790,9 +801,49 @@ class BillingService {
       updated += 1;
     }
 
+    for (const subscription of expiredTrials) {
+      const tenant = await Tenant.findByPk(subscription.tenant_id);
+      if (!tenant) continue;
+
+      const oldTenantSubscriptionStatus = tenant.subscription_status;
+      const oldTenantIsActive = tenant.is_active;
+
+      await subscription.update({
+        status: 'cancelled',
+        grace_until: null,
+      });
+      await tenant.update({
+        subscription_status: 'cancelled',
+        is_active: false,
+      });
+
+      await auditService.log({
+        tenantId: tenant.id,
+        userId: null,
+        entityType: 'Tenant',
+        entityId: tenant.id,
+        action: 'update',
+        description: 'Periodo de prueba vencido: acceso cancelado',
+        changes: {
+          subscription_status: {
+            old: oldTenantSubscriptionStatus,
+            new: 'cancelled',
+          },
+          is_active: {
+            old: oldTenantIsActive,
+            new: false,
+          },
+        },
+      });
+
+      updated += 1;
+    }
+
     return {
-      scanned: overdueSubscriptions.length,
+      scanned: overdueSubscriptions.length + expiredTrials.length,
       updated,
+      overdue: overdueSubscriptions.length,
+      expiredTrials: expiredTrials.length,
     };
   }
 
