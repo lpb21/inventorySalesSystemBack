@@ -24,6 +24,13 @@ const startServer = async () => {
       logger.warn('server', 'Cache service could not be initialized', { error: cacheError.message });
     }
 
+    try {
+      const { startScheduler } = require('./config/scheduler');
+      startScheduler();
+    } catch (schedulerError) {
+      logger.warn('server', 'Scheduler could not be initialized', { error: schedulerError.message });
+    }
+
     server = app.listen(PORT, () => {
       logger.info('server', 'API listening', {
         app: 'invLeo',
