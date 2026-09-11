@@ -225,6 +225,7 @@ class AdminSubscriptionService {
       await tenant.update({
         subscription_status: config.status,
         is_active: true,
+        plan: 'enterprise', // modelo A: todas las funciones, se cobra por tiempo
       }, { transaction });
 
       return { tenant, subscription };

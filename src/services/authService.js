@@ -221,7 +221,7 @@ class AuthService {
         name: business_name,
         slug,
         business_name,
-        plan: 'free',
+        plan: 'enterprise',
         max_products: 100,
         max_users: 1,
       }, { transaction });
