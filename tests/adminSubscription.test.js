@@ -80,6 +80,30 @@ describe('Activación de suscripción (admin)', () => {
       adminSubscriptionService.activate(fakeId, 'monthly', owner.id)
     ).rejects.toThrow(/no encontrado/i);
   });
+
+  test('renovar antes del vencimiento conserva los días restantes (acumula)', async () => {
+    const { tenant, owner } = await createTenant('A');
+
+    // Activa un trial (vence en 7 días)
+    await adminSubscriptionService.activate(tenant.id, 'trial', owner.id);
+    const sub1 = await TenantSubscription.findOne({ where: { tenant_id: tenant.id } });
+    const end1 = new Date(sub1.current_period_end);
+
+    // Renueva a monthly ANTES de que venza el trial
+    await adminSubscriptionService.activate(tenant.id, 'monthly', owner.id);
+    const sub2 = await TenantSubscription.findOne({ where: { tenant_id: tenant.id } });
+    const end2 = new Date(sub2.current_period_end);
+
+    // El nuevo periodo arranca al finalizar el actual: end2 ≈ end1 + 30 días
+    // (si se hubiera reiniciado desde hoy, end2 sería ~hoy+30, perdiendo los 7 días)
+    const daysBetween = Math.round((end2 - end1) / (1000 * 60 * 60 * 24));
+    expect(daysBetween).toBe(30);
+    expect(sub2.status).toBe('active');
+
+    // Y sigue habiendo UNA sola fila de suscripción
+    const count = await TenantSubscription.count({ where: { tenant_id: tenant.id } });
+    expect(count).toBe(1);
+  });
 });
 
 describe('resetOwnerPassword (admin)', () => {

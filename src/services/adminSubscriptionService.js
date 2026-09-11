@@ -247,7 +247,6 @@ class AdminSubscriptionService {
     }
 
     const now = new Date();
-    const periodEnd = calculatePeriodEnd(config.days, now);
 
     const result = await sequelize.transaction(async (transaction) => {
       // 1) El tenant debe existir
@@ -256,7 +255,25 @@ class AdminSubscriptionService {
         throw new NotFoundError('Tenant no encontrado');
       }
 
-      // 2) Actualiza (o crea) la fila de tenant_subscriptions
+      // 2) Respetar los días restantes de una suscripción vigente: el nuevo
+      // periodo arranca al finalizar el actual (no se pierden días pagados/activos).
+      const existingSub = await TenantSubscription.findOne({
+        where: { tenant_id: tenantId },
+        transaction,
+      });
+
+      let periodStart = now;
+      if (
+        existingSub &&
+        existingSub.current_period_end &&
+        new Date(existingSub.current_period_end) > now &&
+        ['active', 'trial'].includes(existingSub.status)
+      ) {
+        periodStart = new Date(existingSub.current_period_end);
+      }
+      const periodEnd = calculatePeriodEnd(config.days, periodStart);
+
+      // 3) Actualiza (o crea) la fila de tenant_subscriptions
       const [subscription] = await TenantSubscription.findOrCreate({
         where: { tenant_id: tenantId },
         defaults: {
@@ -264,17 +281,17 @@ class AdminSubscriptionService {
           provider: 'manual',
           plan_code: period,
           status: config.status,
-          current_period_start: now,
+          current_period_start: periodStart,
           current_period_end: periodEnd,
         },
         transaction,
       });
 
-      // Si ya existía, la renovamos (periodo siempre desde ahora)
+      // Si ya existía, la renovamos (periodo acumulado desde el vencimiento vigente)
       await subscription.update({
         status: config.status,
         plan_code: period,
-        current_period_start: now,
+        current_period_start: periodStart,
         current_period_end: periodEnd,
         grace_until: null,            // al renovar, limpiamos cualquier gracia previa
         last_payment_at: now,
@@ -301,7 +318,7 @@ class AdminSubscriptionService {
       entityType: 'subscription',
       entityId: tenantId,
       action: 'activate',
-      description: `Suscripción activada manualmente: periodo=${period}, vence=${periodEnd.toISOString()}`,
+      description: `Suscripción activada manualmente: periodo=${period}, vence=${new Date(result.subscription.current_period_end).toISOString()}`,
     });
 
     return {

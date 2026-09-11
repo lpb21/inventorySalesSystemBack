@@ -696,6 +696,11 @@ class BillingService {
       overallStatus = 'expired';
     }
 
+    // Un trial vigente cuenta como suscripción activa: el cliente puede usar el
+    // sistema durante el periodo de prueba (status 'trial').
+    const isActiveStatus = subscription.status === 'active' || subscription.status === 'trial';
+    const canAccess = isActiveStatus || (subscription.status === 'past_due' && isInGracePeriod);
+
     return {
       subscription: {
         id: subscription.id,
@@ -740,9 +745,9 @@ class BillingService {
         grace_until_formatted: subscription.grace_until ?
           new Date(subscription.grace_until).toLocaleDateString('es-CO') : null
       },
-      has_active_subscription: subscription.status === 'active',
+      has_active_subscription: isActiveStatus,
       needs_attention: overallStatus === 'past_due' || overallStatus === 'cancelled' || overallStatus === 'expired',
-      can_access_system: subscription.status === 'active' || (subscription.status === 'past_due' && isInGracePeriod)
+      can_access_system: canAccess
     };
   }
 

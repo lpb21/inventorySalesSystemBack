@@ -55,4 +55,17 @@ describe('Cancelación automática de suscripciones vencidas', () => {
     expect(reloaded.subscription_status).toBe('trial');
     expect(reloaded.is_active).toBe(true);
   });
+
+  test('un trial vigente reporta acceso al sistema', async () => {
+    const { tenant, owner } = await createTenant('C');
+
+    await adminSubscriptionService.activate(tenant.id, 'trial', owner.id);
+
+    const result = await billingService.getTenantSubscription(tenant.id);
+
+    expect(result.subscription.status).toBe('trial');
+    expect(result.can_access_system).toBe(true);
+    expect(result.has_active_subscription).toBe(true);
+    expect(result.needs_attention).toBe(false);
+  });
 });
