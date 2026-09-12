@@ -2,7 +2,6 @@
  * Server Entry Point
  * Starts the Express server
  */
-require('dotenv').config();
 const app = require('./app');
 const env = require('./config/env');
 const { sequelize } = require('./models');

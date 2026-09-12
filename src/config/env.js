@@ -1,8 +1,17 @@
 /**
  * Environment Configuration
- * Carga las variables de entorno desde .env
+ * Carga las variables de entorno desde .env.<NODE_ENV> (p. ej. .env.development,
+ * .env.production, .env.test). Si no existe el específico, cae al genérico .env.
  */
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+const nodeEnv = process.env.NODE_ENV || 'development';
+const rootDir = path.resolve(__dirname, '..', '..');
+const envFile = path.join(rootDir, `.env.${nodeEnv}`);
+const fallbackFile = path.join(rootDir, '.env');
+
+require('dotenv').config({ path: fs.existsSync(envFile) ? envFile : fallbackFile });
 
 // Fail-fast: en producción, no arrancar con defaults inseguros o variables faltantes
 if (process.env.NODE_ENV === 'production') {
