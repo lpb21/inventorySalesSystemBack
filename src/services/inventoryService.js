@@ -42,61 +42,69 @@ class InventoryService {
   /**
    * Record inventory movement
    */
-  async recordMovement(tenantId, movementData) {
+    async recordMovement(tenantId, movementData) {
     const { product_id, quantity, type, reason, user_id } = movementData;
 
-    const product = await Product.findOne({
-      where: { id: product_id, tenant_id: tenantId },
+    // Transacción + lock de fila: evita condición de carrera en ajustes simultáneos
+    // (leer-calcular-escribir) y garantiza que stock y movimiento se guarden juntos (atómico).
+    const { product, movement } = await sequelize.transaction(async (transaction) => {
+      const product = await Product.findOne({
+        where: { id: product_id, tenant_id: tenantId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!product) {
+        throw new NotFoundError('Producto no encontrado');
+      }
+
+      // Ensure stock is a valid number, default to 0 if null/undefined
+      const previousStock = parseFloat(product.stock) || 0;
+      let newStock;
+
+      switch (type) {
+        case 'in':
+          newStock = previousStock + Math.abs(quantity);
+          break;
+        case 'out':
+        case 'waste':
+        case 'sale':
+          newStock = previousStock - Math.abs(quantity);
+          if (newStock < 0) {
+            throw new ValidationError('Stock insuficiente');
+          }
+          break;
+        case 'return':
+          // Devolución aumenta el stock
+          newStock = previousStock + Math.abs(quantity);
+          break;
+        case 'adjustment':
+        case 'transfer':
+          newStock = Math.abs(quantity);
+          break;
+        default:
+          throw new ValidationError('Tipo de movimiento inválido');
+      }
+
+      // Update product stock
+      await product.update({ stock: newStock }, { transaction });
+
+      // Record movement
+      const movement = await InventoryMovement.create({
+        tenant_id: tenantId,
+        product_id,
+        user_id,
+        type,
+        quantity: Math.abs(quantity),
+        stock_before: previousStock,
+        stock_after: newStock,
+        reason,
+      }, { transaction });
+
+      return { product, movement };
     });
 
-    if (!product) {
-      throw new NotFoundError('Producto no encontrado');
-    }
-
-    // Ensure stock is a valid number, default to 0 if null/undefined
-    const previousStock = parseFloat(product.stock) || 0;
-    let newStock;
-
-    switch (type) {
-      case 'in':
-        newStock = previousStock + Math.abs(quantity);
-        break;
-      case 'out':
-      case 'waste':
-      case 'sale':
-        newStock = previousStock - Math.abs(quantity);
-        if (newStock < 0) {
-          throw new ValidationError('Stock insuficiente');
-        }
-        break;
-      case 'return':
-        // Devolución aumenta el stock
-        newStock = previousStock + Math.abs(quantity);
-        break;
-      case 'adjustment':
-      case 'transfer':
-        newStock = Math.abs(quantity);
-        break;
-      default:
-        throw new ValidationError('Tipo de movimiento inválido');
-    }
-
-    // Update product stock
-    await product.update({ stock: newStock });
-
-    // Record movement
-    const movement = await InventoryMovement.create({
-      tenant_id: tenantId,
-      product_id,
-      user_id,
-      type,
-      quantity: Math.abs(quantity),
-      stock_before: previousStock,
-      stock_after: newStock,
-      reason,
-    });
-
-    // Log audit for inventory movement
+    // Log audit fuera de la transacción (no debe revertir el movimiento si falla)
     await auditService.logInventoryMovement({
       tenantId,
       userId: user_id,
