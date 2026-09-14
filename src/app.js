@@ -8,6 +8,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const env = require('./config/env');
 const errorMiddleware = require('./middlewares/errorMiddleware');
+const requestIdMiddleware = require('./middlewares/requestIdMiddleware');
 const { generalLimiter, rateLimitLogger } = require('./middlewares/rateLimitMiddleware');
 const { sequelize } = require('./config/database');
 const routes = require('./routes');
@@ -55,6 +56,8 @@ const corsOptions = {
   maxAge: 86400, // 24 horas
 };
 
+app.use(cors(corsOptions));
+app.use(requestIdMiddleware);
 app.use(cors(corsOptions));
 
 // Body parsing

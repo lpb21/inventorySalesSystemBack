@@ -45,7 +45,7 @@ src/
 | **ORM**                  | ✅ Sequelize 6 con modelos tipados y asociaciones declaradas                                     |
 | **Base de datos**        | ✅ PostgreSQL con UUIDs como PKs                                                                 |
 | **Variables de entorno** | ✅ dotenv centralizado en `config/env.js`                                                      |
-| **Scripts npm**          | ✅`db:sync` y `db:seed` para gestión de base de datos                                       |
+| **Scripts npm**          | ✅`migrate` para gestión de base de datos                                       |
 
 ### 🟡 Observaciones y Recomendaciones
 
@@ -551,8 +551,7 @@ psql -U postgres -f SETUP_DATABASE.sql
 
 ```bash
 # Desde la raíz del proyecto
-npm run db:sync    # Crea/actualiza tablas via Sequelize
-npm run db:seed    # Inserta datos iniciales
+npm run migrate    # Aplica migraciones (crea/actualiza tablas)
 ```
 
 ---

@@ -14,8 +14,6 @@
     "deploy:logs": "pm2 logs invleo-api",
     "deploy:status": "pm2 status",
     "health": "curl http://localhost/health || curl http://localhost:3000/health",
-    "db:sync": "node src/config/sync.js",
-    "db:seed": "node src/config/seed.js",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "migrate": "node src/migrations/cli.js up",
     "migrate:undo": "node src/migrations/cli.js down",

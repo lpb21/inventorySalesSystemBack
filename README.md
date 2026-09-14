@@ -59,8 +59,7 @@ sisInventariosBACK/
 ├── src/
 │   ├── config/
 │   │   ├── database.js       # Configuración de Sequelize
-│   │   ├── env.js           # Variables de entorno
-│   │   └── seed.js          # Datos iniciales de prueba
+│   │   └── env.js           # Variables de entorno
 │   │
 │   ├── controllers/
 │   │   ├── authController.js    # Autenticación
@@ -536,12 +535,8 @@ bash
 ```
 
 6. **(Opcional) Poblar con datos de prueba**
-   
-```
-bash
-   npm run db:seed
-   
-```
+
+   Se recomienda crear los datos iniciales manualmente o vía migraciones.
 
 ---
 
@@ -551,8 +546,7 @@ bash
 |--------|-------------|
 | `npm start` | Iniciar servidor en producción |
 | `npm run dev` | Iniciar servidor en desarrollo con auto-reload |
-| `npm run db:sync` | Sincronizar modelos con la base de datos |
-| `npm run db:seed` | Poblar base de datos con datos de prueba |
+| `npm run migrate` | Aplicar migraciones de base de datos |
 
 ---
 
