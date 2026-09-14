@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "cross-env NODE_ENV=production node src/server.js",
     "start:prod": "NODE_ENV=production node src/server.js",
     "start:pm2": "pm2 start ecosystem.config.js",
-    "dev": "node --watch src/server.js",
+    "dev": "cross-env NODE_ENV=development node --watch src/server.js",
     "build": "echo 'API Ready for production'",
     "deploy:prepare": "bash prepare-production.sh",
     "deploy:start": "pm2 start ecosystem.config.js && pm2 startup && pm2 save",
