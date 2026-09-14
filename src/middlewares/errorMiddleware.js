@@ -8,11 +8,16 @@ const logger = require('../utils/logger');
 
 const errorMiddleware = (err, req, res, next) => {
   // Siempre registrar el error completo en el logger (para que TÚ lo veas en tus logs)
-  logger.error('http', 'Error en petición', {
+    logger.error('http', 'Error en petición', {
     message: err.message,
     name: err.name,
     path: req.originalUrl,
     method: req.method,
+    status_code: err.statusCode || 500,
+    tenant_id: req.tenantId || null,
+    user_id: req.user?.userId || null,
+    role: req.user?.role || null,
+    request_id: req.requestId || null,
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 
