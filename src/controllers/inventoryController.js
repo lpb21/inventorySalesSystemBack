@@ -55,9 +55,9 @@ class InventoryController {
    */
   bulkAdjust = asyncHandler(async (req, res, next) => {
     const { adjustments } = req.body;
-    const results = await inventoryService.bulkAdjustStock(req.tenantId, adjustments, req.user.userId);
+    const result = await inventoryService.bulkAdjustStock(req.tenantId, adjustments, req.user.userId);npm test
     
-    res.status(200).json(formatResponse({ results }));
+    res.status(200).json(formatResponse(result));
   });
 
     /**

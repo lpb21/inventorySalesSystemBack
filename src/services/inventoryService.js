@@ -184,78 +184,71 @@ class InventoryService {
   /**
    * Bulk adjust inventory
    */
-  async bulkAdjustStock(tenantId, adjustments, userId) {
+    async bulkAdjustStock(tenantId, adjustments, userId) {
     const results = [];
 
     for (const adjustment of adjustments) {
+      const { product_id, quantity, type, reason } = adjustment;
+
       try {
-        const { product_id, quantity, type, reason } = adjustment;
-        
-        const product = await Product.findOne({
-          where: { id: product_id, tenant_id: tenantId },
-        });
-
-        if (!product) {
-          results.push({
-            product_id,
-            success: false,
-            error: 'Producto no encontrado',
+        // Transacción + lock POR producto: toda la operación (leer, calcular, actualizar,
+        // registrar movimiento) vive dentro de la misma transacción, así el lock se
+        // mantiene hasta el commit y no queda ventana de concurrencia. Si un producto
+        // falla, se captura y se continúa con los demás (no se cae el lote completo).
+        const { product, movement, previousStock, newStock } = await sequelize.transaction(async (transaction) => {
+          const product = await Product.findOne({
+            where: { id: product_id, tenant_id: tenantId },
+            transaction,
+            lock: transaction.LOCK.UPDATE,
           });
-          continue;
-        }
 
-        // Ensure stock is a valid number, default to 0 if null/undefined
-        const previousStock = parseFloat(product.stock) || 0;
-        let newStock;
+          if (!product) {
+            throw new NotFoundError('Producto no encontrado');
+          }
 
-        switch (type) {
-          case 'in':
-            newStock = previousStock + Math.abs(quantity);
-            break;
-          case 'out':
-          case 'waste':
-          case 'sale':
-            newStock = previousStock - Math.abs(quantity);
-            if (newStock < 0) {
-              results.push({
-                product_id,
-                success: false,
-                error: 'Stock insuficiente',
-              });
-              continue;
-            }
-            break;
-          case 'return':
-            // Devolución aumenta el stock
-            newStock = previousStock + Math.abs(quantity);
-            break;
-          case 'adjustment':
-          case 'transfer':
-            newStock = Math.abs(quantity);
-            break;
-          default:
-            results.push({
-              product_id,
-              success: false,
-              error: 'Tipo de movimiento inválido',
-            });
-            continue;
-        }
+          const previousStock = parseFloat(product.stock) || 0;
+          let newStock;
 
-        await product.update({ stock: newStock });
+          switch (type) {
+            case 'in':
+              newStock = previousStock + Math.abs(quantity);
+              break;
+            case 'out':
+            case 'waste':
+            case 'sale':
+              newStock = previousStock - Math.abs(quantity);
+              if (newStock < 0) {
+                throw new ValidationError('Stock insuficiente');
+              }
+              break;
+            case 'return':
+              newStock = previousStock + Math.abs(quantity);
+              break;
+            case 'adjustment':
+            case 'transfer':
+              newStock = Math.abs(quantity);
+              break;
+            default:
+              throw new ValidationError('Tipo de movimiento inválido');
+          }
 
-        const movement = await InventoryMovement.create({
-          tenant_id: tenantId,
-          product_id,
-          user_id: userId,
-          type,
-          quantity: Math.abs(quantity),
-          stock_before: previousStock,
-          stock_after: newStock,
-          reason,
+          await product.update({ stock: newStock }, { transaction });
+
+          const movement = await InventoryMovement.create({
+            tenant_id: tenantId,
+            product_id,
+            user_id: userId,
+            type,
+            quantity: Math.abs(quantity),
+            stock_before: previousStock,
+            stock_after: newStock,
+            reason,
+          }, { transaction });
+
+          return { product, movement, previousStock, newStock };
         });
 
-        // Log audit for bulk inventory movement
+        // Auditoría fuera de la transacción (no debe revertir el movimiento si falla)
         await auditService.logInventoryMovement({
           tenantId,
           userId,
@@ -271,14 +264,24 @@ class InventoryService {
         });
       } catch (error) {
         results.push({
-          product_id: adjustment.product_id,
+          product_id,
           success: false,
           error: error.message,
         });
       }
     }
 
-    return results;
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.length - successful;
+
+    return {
+      summary: {
+        total: results.length,
+        successful,
+        failed,
+      },
+      results,
+    };
   }
 
   /**
