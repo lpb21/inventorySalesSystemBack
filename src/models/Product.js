@@ -96,7 +96,7 @@ const Product = sequelize.define('Product', {
     type: DataTypes.STRING(20),
     allowNull: false,
     defaultValue: 'und',
-    values: ['kg', 'lb', 'und', 'paq', 'l', 'ml'],
+    values: ['kg', 'lb', 'und', 'paq', 'lt', 'gr'],
   },
   type: {
     type: DataTypes.STRING(20),

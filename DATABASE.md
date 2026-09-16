@@ -303,7 +303,7 @@ erDiagram
 | description | TEXT | Descripción |
 | sku | VARCHAR(50) | Código interno |
 | barcode | VARCHAR(100) | Código de barras |
-| unit | VARCHAR(20) | Unidad (kg, lb, und, paq) |
+| unit | VARCHAR(20) | Unidad (kg, lb, und, paq, lt, gr) |
 | type | VARCHAR(20) | Tipo (weight, unit, portion) |
 | price | DECIMAL(12,2) | Precio de venta |
 | cost | DECIMAL(12,2) | Costo |

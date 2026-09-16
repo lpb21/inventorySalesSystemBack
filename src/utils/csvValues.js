@@ -18,14 +18,14 @@ const TYPE_ALIASES = {
   portion: 'portion', porcion: 'portion', 'por porcion': 'portion', porciones: 'portion',
 };
 
-// unidad de medida -> kg | lb | und | paq | l | ml
+// unidad de medida -> kg | lb | und | paq | lt | gr
 const UNIT_ALIASES = {
   kg: 'kg', kilo: 'kg', kilos: 'kg', kilogramo: 'kg', kilogramos: 'kg',
   lb: 'lb', libra: 'lb', libras: 'lb',
   und: 'und', unidad: 'und', unidades: 'und', u: 'und', un: 'und',
   paq: 'paq', paquete: 'paq', paquetes: 'paq',
-  l: 'l', lt: 'l', litro: 'l', litros: 'l',
-  ml: 'ml', mililitro: 'ml', mililitros: 'ml',
+  lt: 'lt', l: 'lt', litro: 'lt', litros: 'lt',
+  gr: 'gr', g: 'gr', gramo: 'gr', gramos: 'gr',
 };
 
 function normalizeType(value) {
@@ -51,4 +51,11 @@ function normalizeDate(value) {
   return { valid: true, value: raw };
 }
 
-module.exports = { normalizeType, normalizeUnit, normalizeDate };
+// type -> weight | unit (se deriva de la unidad para evitar combinaciones
+// inválidas como "paquete + por peso"). und/paq se venden por unidad; el resto
+// (kg, lb, lt, gr) se vende por medida/peso.
+function deriveTypeFromUnit(unit) {
+  return (unit === 'und' || unit === 'paq') ? 'unit' : 'weight';
+}
+
+module.exports = { normalizeType, normalizeUnit, normalizeDate, deriveTypeFromUnit };

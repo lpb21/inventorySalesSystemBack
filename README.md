@@ -195,7 +195,7 @@ sisInventariosBACK/
 | cost | DECIMAL(12,2) | Costo |
 | stock | DECIMAL(12,3) | Stock actual |
 | min_stock | DECIMAL(12,3) | Stock mínimo |
-| unit | VARCHAR(20) | Unidad (kg, lb, und, paq) |
+| unit | VARCHAR(20) | Unidad (kg, lb, und, paq, lt, gr) |
 | type | VARCHAR(20) | Tipo (weight, unit, portion) |
 | image_url | TEXT | URL de imagen |
 | expiry_date | DATE | Fecha de vencimiento |

@@ -10,7 +10,7 @@ const auditService = require('./auditService');
 const cacheService = require('./cacheService');
 const supplierService = require('./supplierService');
 const categoryService = require('./categoryService');
-const { normalizeType, normalizeUnit, normalizeDate } = require('../utils/csvValues');
+const { normalizeUnit, normalizeDate, deriveTypeFromUnit } = require('../utils/csvValues');
 const logger = require('../utils/logger');
 
 const PRODUCTS_CACHE_TTL = 60; // 1 minute
@@ -72,6 +72,7 @@ class ProductService {
     const product = await Product.create({
       ...productData,
       tenant_id: tenantId,
+      type: deriveTypeFromUnit(productData.unit || 'und'),
     });
 
     // Log audit
@@ -133,6 +134,13 @@ class ProductService {
           filteredData[key] = value;
         }
       });
+
+      // type siempre se deriva de la unidad para evitar combinaciones inválidas
+      // (p. ej. "paquete + por peso"). Solo se recalcula si cambia la unidad,
+      // preservando productos legacy con type="portion".
+      if (filteredData.unit !== undefined) {
+        filteredData.type = deriveTypeFromUnit(filteredData.unit);
+      }
 
 
       // Check category exists and belongs to tenant
@@ -609,17 +617,11 @@ class ProductService {
           continue;
         }
 
-        // Validar y normalizar tipo, unidad y fecha (acepta español) con mensajes claros,
+        // Validar y normalizar unidad y fecha (acepta español) con mensajes claros,
         // en vez de dejar que reviente el check constraint de la BD con un error técnico.
-        const typeResult = normalizeType(row.type);
-        if (!typeResult.valid) {
-          results.errors.push({ row: rowNum, error: `Tipo inválido "${row.type}". Usa: unidad, peso o porción` });
-          continue;
-        }
-
         const unitResult = normalizeUnit(row.unit);
         if (!unitResult.valid) {
-          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, l o ml` });
+          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, lt o gr` });
           continue;
         }
 
@@ -643,7 +645,7 @@ class ProductService {
           stock,
           min_stock: minStock,
           unit: unitResult.value,
-          type: typeResult.value,
+          type: deriveTypeFromUnit(unitResult.value),
           image_url: row.image_url ? row.image_url.trim() : null,
           expiry_date: expiryResult.value,
           is_active: true,
@@ -865,25 +867,11 @@ class ProductService {
           continue;
         }
 
-        // Validar y normalizar tipo, unidad y fecha (acepta español) con mensajes claros,
+        // Validar y normalizar unidad y fecha (acepta español) con mensajes claros,
         // en vez de dejar que reviente el check constraint de la BD con un error técnico.
-        const typeResult = normalizeType(row.type);
-        if (!typeResult.valid) {
-          results.errors.push({ row: rowNum, error: `Tipo inválido "${row.type}". Usa: unidad, peso o porción` });
-          onProgress({
-            status: 'processing',
-            progress: Math.round(((i + 1) / productsData.length) * 100),
-            processed: i + 1,
-            successCount: results.success.length,
-            errorCount: results.errors.length,
-            message: `Procesando fila ${i + 1} de ${productsData.length}...`
-          });
-          continue;
-        }
-
         const unitResult = normalizeUnit(row.unit);
         if (!unitResult.valid) {
-          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, l o ml` });
+          results.errors.push({ row: rowNum, error: `Unidad inválida "${row.unit}". Usa: kg, lb, und, paq, lt o gr` });
           onProgress({
             status: 'processing',
             progress: Math.round(((i + 1) / productsData.length) * 100),
@@ -923,7 +911,7 @@ class ProductService {
           stock,
           min_stock: minStock,
           unit: unitResult.value,
-          type: typeResult.value,
+          type: deriveTypeFromUnit(unitResult.value),
           image_url: row.image_url ? row.image_url.trim() : null,
           expiry_date: expiryResult.value,
           is_active: true,
