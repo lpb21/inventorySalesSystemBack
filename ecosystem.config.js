@@ -4,19 +4,20 @@
  */
 module.exports = {
   apps: [{
-    name: 'invleo-api',
+    name: 'puntofresco-api',
     script: 'src/server.js',
-    instances: 'max', // Usar todas las CPUs disponibles
+    cwd: __dirname,
+    instances: '1', // Usar todas las CPUs disponibles
     exec_mode: 'cluster', // Modo cluster para mejor rendimiento
     
     // Variables de entorno
     env: {
       NODE_ENV: 'production',
-      PORT: 80
+      PORT: 3001
     },
     
     // Configuración de memoria
-    max_memory_restart: '1G', // Reiniciar si excede 1GB
+    max_memory_restart: '300M', // Reiniciar si excede 1GB
     
     // Logs
     error_file: './logs/err.log',
@@ -38,7 +39,6 @@ module.exports = {
     
     // Configuración avanzada
     kill_timeout: 5000,
-    listen_timeout: 3000,
-    shutdown_with_message: true,
+    listen_timeout: 3000
   }]
 }
