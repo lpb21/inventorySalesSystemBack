@@ -148,19 +148,6 @@ class SaleService {
 
         // Update customer credit balance
         await customer.update({ credit_balance: newBalance }, { transaction });
-
-        // Invalidate cache for this customer (fire-and-forget)
-        Promise.all([
-          cacheService.invalidateKeys([
-            cacheService.getCustomerBalanceKey(tenantId, saleData.customer_id),
-          ]),
-          cacheService.invalidate(
-            cacheService.getCustomerCreditSalesPattern(tenantId, saleData.customer_id)
-          ),
-          cacheService.invalidate(
-            cacheService.getCustomersWithCreditPattern(tenantId)
-          ),
-        ]).catch(() => { });
       } else {
         // Regular sale - Si payment_received no está definido o es 0, usar el total
         paymentReceived = parseFloat(saleData.payment_received) || total;
@@ -255,10 +242,28 @@ class SaleService {
 
       await transaction.commit();
 
-      // Invalidar caché de productos: el stock cambió con la venta (fire-and-forget)
-      cacheService.invalidate(
+      // Invalidar caché de productos ANTES de responder: el stock cambió con la
+      // venta. Si quedara fire-and-forget, el refetch del front podría leer la
+      // caché vieja de Redis y pisar el stock correcto.
+      await cacheService.invalidate(
         cacheService.getProductsPattern(tenantId)
-      ).catch(() => {});
+      );
+
+      // Invalidar caché del cliente para ventas a crédito (DESPUÉS del commit,
+      // para que un GET concurrente no rellene la caché con el saldo viejo).
+      if (isCreditSale) {
+        await Promise.all([
+          cacheService.invalidateKeys([
+            cacheService.getCustomerBalanceKey(tenantId, saleData.customer_id),
+          ]),
+          cacheService.invalidate(
+            cacheService.getCustomerCreditSalesPattern(tenantId, saleData.customer_id)
+          ),
+          cacheService.invalidate(
+            cacheService.getCustomersWithCreditPattern(tenantId)
+          ),
+        ]);
+      }
 
       // Log audit asynchronously (fire-and-forget, don't slow down the response)
       for (let i = 0; i < movements.length; i++) {
@@ -304,7 +309,9 @@ class SaleService {
         })),
       };
     } catch (error) {
-      await transaction.rollback();
+      if (transaction && !transaction.finished) {
+        await transaction.rollback();
+      }
       throw error;
     }
   }
@@ -620,10 +627,12 @@ class SaleService {
         description: `Venta ${sale.ticket_number || saleId} anulada${reason ? ` - ${reason}` : ''}`,
       });
 
-      // Invalidar caché de productos: el stock se restauró con la cancelación (fire-and-forget)
-      cacheService.invalidate(
+      // Invalidar caché de productos ANTES de responder: el stock se restauró con
+      // la cancelación. Si quedara fire-and-forget, el refetch del front podría
+      // leer la caché vieja de Redis y pisar el stock correcto.
+      await cacheService.invalidate(
         cacheService.getProductsPattern(tenantId)
-      ).catch(() => {});
+      );
 
       // Invalidate cache if it was a credit sale
       if (sale.payment_method === 'credit' && sale.customer_id) {
@@ -642,7 +651,9 @@ class SaleService {
       const plain = cancelledSale?.toJSON ? cancelledSale.toJSON() : cancelledSale;
       return { ...plain, updated_products: updatedProducts };
     } catch (error) {
-      await transaction.rollback();
+      if (transaction && !transaction.finished) {
+        await transaction.rollback();
+      }
       throw error;
     }
   }
