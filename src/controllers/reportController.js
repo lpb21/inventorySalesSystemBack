@@ -5,6 +5,7 @@
 const { Op, fn, col, literal } = require('sequelize');
 const { Sale, SaleItem, Product, InventoryMovement, User, Category, AuditLog, sequelize } = require('../models');
 const { asyncHandler, formatResponse, formatPagination, getPaginationSkip } = require('../utils/helpers');
+const { ValidationError } = require('../utils/errors');
 const auditService = require('../services/auditService');
 const cacheService = require('../services/cacheService');
 
@@ -115,7 +116,7 @@ class ReportController {
         where.created_at[Op.gte] = new Date(start_date);
       }
       if (end_date) {
-        where.created_at[Op.lte] = new Date(end_date);
+        where.created_at[Op.lt] = new Date(end_date);
       }
     }
 
@@ -129,16 +130,172 @@ class ReportController {
       offset: getPaginationSkip(page, limit),
     });
 
-    const totalRevenue = rows.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
+    // Aggregate totalRevenue over the full filtered range (not just the page)
+    const totalRevenue = await Sale.sum('total', { where });
 
     res.status(200).json(formatResponse({
       sales: rows,
       summary: {
         totalSales: count,
-        totalRevenue,
+        totalRevenue: parseFloat(totalRevenue) || 0,
       },
       pagination: formatPagination(page, limit, count),
     }));
+  });
+
+  /**
+   * GET /v1/reports/monthly
+   * Monthly cash-close report (read-only). Aggregations over the full month,
+   * with month/day boundaries computed in America/Bogotá (UTC-5, no DST).
+   */
+  getMonthlyReport = asyncHandler(async (req, res, next) => {
+    const {
+      year,
+      month,
+      page = 1,
+      limit = 20,
+      payment_method,
+      q,
+    } = req.query;
+
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+
+    if (!yearNum || !monthNum || monthNum < 1 || monthNum > 12) {
+      throw new ValidationError('Se requiere un año y un mes válidos (1-12)');
+    }
+
+    // Month boundaries in America/Bogotá (UTC-5, no DST) → 00:00 Bogotá = 05:00 UTC
+    const startUtc = new Date(Date.UTC(yearNum, monthNum - 1, 1, 5, 0, 0));
+    const endUtc = new Date(Date.UTC(yearNum, monthNum, 1, 5, 0, 0));
+
+    const replacements = {
+      tenantId: req.tenantId,
+      startUtc,
+      endUtc,
+    };
+
+    const completedWhere = `
+      s.tenant_id = :tenantId
+      AND s.status = 'completed'
+      AND s.created_at >= :startUtc
+      AND s.created_at < :endUtc
+    `;
+
+    // Summary (revenue + transactions)
+    const [summaryRow] = await sequelize.query(`
+      SELECT
+        COALESCE(SUM(s.total), 0) AS "totalRevenue",
+        COUNT(s.id)::int AS "totalTransactions"
+      FROM sales s
+      WHERE ${completedWhere}
+    `, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Total items sold
+    const [itemsRow] = await sequelize.query(`
+      SELECT COALESCE(SUM(si.quantity), 0) AS "totalItems"
+      FROM sale_items si
+      JOIN sales s ON s.id = si.sale_id
+      WHERE ${completedWhere}
+    `, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Daily breakdown (grouped in Bogotá local time)
+    const dailyBreakdown = await sequelize.query(`
+      SELECT
+        to_char(s.created_at AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS date,
+        COUNT(s.id)::int AS transactions,
+        COALESCE(SUM(s.total), 0) AS revenue
+      FROM sales s
+      WHERE ${completedWhere}
+      GROUP BY 1
+      ORDER BY 1
+    `, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Payment methods
+    const paymentMethods = await sequelize.query(`
+      SELECT
+        s.payment_method AS method,
+        COUNT(s.id)::int AS count,
+        COALESCE(SUM(s.total), 0) AS amount
+      FROM sales s
+      WHERE ${completedWhere}
+      GROUP BY s.payment_method
+      ORDER BY s.payment_method
+    `, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Top products
+    const topProductsRaw = await sequelize.query(`
+      SELECT
+        p.name AS name,
+        p.sku AS sku,
+        SUM(si.quantity) AS quantity,
+        SUM(si.subtotal) AS revenue
+      FROM sale_items si
+      JOIN sales s ON s.id = si.sale_id
+      JOIN products p ON p.id = si.product_id
+      WHERE ${completedWhere}
+      GROUP BY p.id, p.name, p.sku
+      ORDER BY revenue DESC
+      LIMIT 10
+    `, { replacements, type: sequelize.QueryTypes.SELECT });
+
+    // Paginated detailed sales (with items) + optional filters
+    const where = {
+      tenant_id: req.tenantId,
+      status: 'completed',
+      created_at: { [Op.gte]: startUtc, [Op.lt]: endUtc },
+    };
+    if (payment_method) where.payment_method = payment_method;
+    if (q) {
+      where[Op.or] = [
+        { ticket_number: { [Op.iLike]: `%${q}%` } },
+        { customer_name: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+
+    const { count, rows } = await Sale.findAndCountAll({
+      where,
+      include: [
+        {
+          model: SaleItem,
+          as: 'items',
+          attributes: ['id', 'product_id', 'quantity', 'unit_price', 'subtotal'],
+          include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: getPaginationSkip(page, limit),
+    });
+
+    const totalRevenue = parseFloat(summaryRow.totalRevenue) || 0;
+    const totalTransactions = parseInt(summaryRow.totalTransactions) || 0;
+    const totalItems = parseFloat(itemsRow.totalItems) || 0;
+
+    const result = {
+      summary: {
+        totalRevenue,
+        totalTransactions,
+        totalItems,
+        averageTicket: totalTransactions > 0 ? totalRevenue / totalTransactions : 0,
+      },
+      dailyBreakdown,
+      paymentMethods: paymentMethods.map((pm) => ({
+        method: pm.method,
+        count: parseInt(pm.count) || 0,
+        amount: parseFloat(pm.amount) || 0,
+      })),
+      topProducts: topProductsRaw.map((p) => ({
+        name: p.name,
+        sku: p.sku,
+        quantity: parseFloat(p.quantity) || 0,
+        revenue: parseFloat(p.revenue) || 0,
+      })),
+      sales: rows,
+      pagination: formatPagination(page, limit, count),
+    };
+
+    res.status(200).json(formatResponse(result));
   });
 
   /**

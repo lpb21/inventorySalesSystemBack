@@ -568,18 +568,31 @@ class SaleService {
       }
 
       // Revertir efectivo de la caja si la venta fue en efectivo
+      let reversalCashRegisterId = null;
       if (sale.payment_method === 'cash' && sale.cash_register_id) {
         const { CashRegister } = require('../models');
-        const cashRegister = await CashRegister.findByPk(sale.cash_register_id, { transaction });
+        let cashRegister = await CashRegister.findByPk(sale.cash_register_id, { transaction });
 
-        if (cashRegister && cashRegister.status === 'open') {
-          const newCashAmount = (parseFloat(cashRegister.cash_in_drawer) || 0) - parseFloat(sale.total);
-          const newExpectedAmount = (parseFloat(cashRegister.expected_amount) || 0) - parseFloat(sale.total);
-          await cashRegister.update({
-            cash_in_drawer: newCashAmount,
-            expected_amount: newExpectedAmount,
-          }, { transaction });
+        // Si el turno original ya está cerrado, exigir un turno activo para revertir el efectivo
+        if (!cashRegister || cashRegister.status !== 'open') {
+          cashRegister = await CashRegister.findOne({
+            where: { tenant_id: tenantId, user_id: userId, status: 'open' },
+            order: [['opened_at', 'DESC']],
+            transaction,
+          });
+
+          if (!cashRegister) {
+            throw new ValidationError('El turno de caja de esta venta ya fue cerrado. Abre un nuevo turno para poder anularla.');
+          }
         }
+
+        const newCashAmount = (parseFloat(cashRegister.cash_in_drawer) || 0) - parseFloat(sale.total);
+        const newExpectedAmount = (parseFloat(cashRegister.expected_amount) || 0) - parseFloat(sale.total);
+        await cashRegister.update({
+          cash_in_drawer: newCashAmount,
+          expected_amount: newExpectedAmount,
+        }, { transaction });
+        reversalCashRegisterId = cashRegister.id;
       }
 
       // Update sale status
@@ -590,6 +603,22 @@ class SaleService {
       }, { transaction });
 
       await transaction.commit();
+
+      // Dejar huella de la anulación en auditoría
+      await auditService.log({
+        tenantId,
+        userId,
+        entityType: 'Sale',
+        entityId: saleId,
+        action: 'sale_cancelled',
+        changes: {
+          total: sale.total,
+          payment_method: sale.payment_method,
+          reason: reason || null,
+          cash_register_id: reversalCashRegisterId || sale.cash_register_id || null,
+        },
+        description: `Venta ${sale.ticket_number || saleId} anulada${reason ? ` - ${reason}` : ''}`,
+      });
 
       // Invalidar caché de productos: el stock se restauró con la cancelación (fire-and-forget)
       cacheService.invalidate(

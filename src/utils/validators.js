@@ -167,7 +167,7 @@ const saleSchema = Joi.object({
   discount: optionalNumber.min(0).default(0),
   tax: optionalNumber.min(0).default(0),
   total: requiredNumber.min(0),
-  payment_method: Joi.string().valid('cash', 'card', 'transfer', 'credit').required(),
+  payment_method: Joi.string().valid('cash', 'card', 'transfer', 'digital', 'credit').required(),
   payment_received: optionalNumber.min(0).default(0),
   change_given: optionalNumber.min(0).default(0),
   note: optionalString,

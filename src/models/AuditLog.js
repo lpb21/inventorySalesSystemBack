@@ -43,7 +43,7 @@ const AuditLog = sequelize.define('AuditLog', {
   action: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    values: ['create', 'update', 'delete', 'login', 'logout', 'price_change', 'cost_change', 'stock_adjustment'],
+    values: ['create', 'update', 'delete', 'login', 'logout', 'price_change', 'cost_change', 'stock_adjustment', 'sale_cancelled'],
   },
   changes: {
     type: DataTypes.JSONB,

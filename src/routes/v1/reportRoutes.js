@@ -20,6 +20,7 @@ router.use(reportLimiter);
 // Report routes
 router.get('/dashboard', permissionMiddleware('reports:read'), reportController.getDashboard);
 router.get('/sales', permissionMiddleware('reports:read'), reportController.getSalesReport);
+router.get('/monthly', permissionMiddleware('reports:read'), reportController.getMonthlyReport);
 router.get('/inventory', permissionMiddleware('reports:read'), reportController.getInventoryReport);
 router.get('/profits', permissionMiddleware('reports:read'), reportController.getProfitReport);
 router.get('/top-products', permissionMiddleware('reports:read'), reportController.getTopProducts);
