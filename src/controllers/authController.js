@@ -3,7 +3,7 @@
  * Handles authentication endpoints
  */
 const authService = require('../services/authService');
-const { asyncHandler, formatResponse, formatError } = require('../utils/helpers');
+const { asyncHandler, formatResponse } = require('../utils/helpers');
 
 class AuthController {
   /**
@@ -32,23 +32,6 @@ class AuthController {
   me = asyncHandler(async (req, res, next) => {
     const user = await authService.getCurrentUser(req.user.id);
     res.status(200).json(formatResponse(user));
-  });
-
-  /**
-   * POST /v1/auth/refresh-token
-   * Refresh JWT token
-   */
-  refreshToken = asyncHandler(async (req, res, next) => {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json(formatError({
-        message: 'Token requerido',
-        statusCode: 400,
-        errorCode: 'TOKEN_REQUIRED',
-      }));
-    }
-    const newToken = await authService.refreshToken(token);
-    res.status(200).json(formatResponse({ token: newToken }));
   });
 
   /**

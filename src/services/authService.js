@@ -5,6 +5,7 @@
 const jwt = require('jsonwebtoken');
 const { User, Tenant, TenantSubscription } = require('../models');
 const { AuthenticationError, ConflictError, ValidationError } = require('../utils/errors');
+const { isStrongPassword } = require('../utils/validators');
 const env = require('../config/env');
 const plansConfig = require('../config/plans');
 
@@ -316,24 +317,6 @@ class AuthService {
   }
 
   /**
-   * Refresh token
-   */
-  async refreshToken(token) {
-    try {
-      const decoded = jwt.verify(token, env.jwt.secret);
-      const user = await User.findByPk(decoded.userId);
-
-      if (!user || !user.is_active) {
-        throw new AuthenticationError('Usuario no válido');
-      }
-
-      return this.generateToken(user);
-    } catch (error) {
-      throw new AuthenticationError('Token inválido');
-    }
-  }
-
-  /**
    * Change own password
    * User must provide current password to change it
    */
@@ -351,8 +334,8 @@ class AuthService {
     }
 
     // Validate new password strength
-    if (newPassword.length < 6) {
-      throw new ValidationError('La nueva contraseña debe tener al menos 6 caracteres');
+    if (!isStrongPassword(newPassword)) {
+      throw new ValidationError('La nueva contraseña debe tener al menos 8 caracteres e incluir letras y números');
     }
 
     if (currentPassword === newPassword) {
@@ -407,8 +390,8 @@ class AuthService {
     }
 
     // Validate new password strength
-    if (newPassword.length < 6) {
-      throw new ValidationError('La contraseña debe tener al menos 6 caracteres');
+    if (!isStrongPassword(newPassword)) {
+      throw new ValidationError('La contraseña debe tener al menos 8 caracteres e incluir letras y números');
     }
 
     // Update password

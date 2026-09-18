@@ -3,6 +3,22 @@
  */
 const Joi = require('joi');
 
+// Política de contraseñas: mínimo 8 caracteres y al menos una letra y un número
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).+$/;
+
+const passwordSchema = Joi.string().required().min(PASSWORD_MIN_LENGTH).pattern(PASSWORD_PATTERN).messages({
+  'any.required': 'La contraseña es requerida',
+  'string.empty': 'La contraseña es requerida',
+  'string.min': `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`,
+  'string.pattern.base': 'La contraseña debe incluir letras y números',
+});
+
+const isStrongPassword = (password) =>
+  typeof password === 'string' &&
+  password.length >= PASSWORD_MIN_LENGTH &&
+  PASSWORD_PATTERN.test(password);
+
 // Common validation schemas
 const uuidSchema = Joi.string().uuid().optional();
 const requiredUUID = Joi.string().uuid().required();
@@ -21,7 +37,7 @@ const loginSchema = Joi.object({
 
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required().min(6),
+  password: passwordSchema,
   name: requiredString,
   business_name: requiredString,
   slug: Joi.string().alphanum().lowercase().min(3).max(50).required(),
@@ -33,19 +49,11 @@ const changePasswordSchema = Joi.object({
     'string.empty': 'La contraseña actual es requerida',
     'string.min': 'La contraseña actual debe tener al menos 6 caracteres',
   }),
-  new_password: Joi.string().required().min(6).messages({
-    'any.required': 'La nueva contraseña es requerida',
-    'string.empty': 'La nueva contraseña es requerida',
-    'string.min': 'La nueva contraseña debe tener al menos 6 caracteres',
-  }),
+  new_password: passwordSchema,
 });
 
 const resetPasswordSchema = Joi.object({
-  new_password: Joi.string().required().min(6).messages({
-    'any.required': 'La nueva contraseña es requerida',
-    'string.empty': 'La nueva contraseña es requerida',
-    'string.min': 'La nueva contraseña debe tener al menos 6 caracteres',
-  }),
+  new_password: passwordSchema,
 });
 
 // Tenant schemas
@@ -72,7 +80,7 @@ const createTenantSchema = Joi.object({
   }),
   owner_name: requiredString.max(255),
   owner_email: Joi.string().email().required(),
-  owner_password: Joi.string().required().min(6),
+  owner_password: passwordSchema,
 });
 
 const updateTenantSchema = Joi.object({
@@ -86,7 +94,7 @@ const updateTenantSchema = Joi.object({
 // User schemas
 const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required().min(6),
+  password: passwordSchema,
   name: requiredString,
   role: Joi.string().valid('owner', 'admin', 'supervisor', 'cashier').required(),
   is_active: optionalBoolean.default(true),
@@ -293,6 +301,11 @@ module.exports = {
   registerSchema,
   changePasswordSchema,
   resetPasswordSchema,
+
+  // Password policy helpers
+  passwordSchema,
+  isStrongPassword,
+  PASSWORD_MIN_LENGTH,
 
   // Tenant
   createTenantSchema,

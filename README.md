@@ -276,7 +276,6 @@ Todas las rutas requieren autenticación excepto las de auth.
 | POST | `/v1/auth/forgot-password` | Recuperar contraseña |
 | POST | `/v1/auth/reset-password` | Restablecer contraseña |
 | GET | `/v1/auth/me` | Obtener usuario actual |
-| POST | `/v1/auth/refresh-token` | Renovar token |
 | POST | `/v1/auth/logout` | Cerrar sesión |
 
 ---

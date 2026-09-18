@@ -10,6 +10,7 @@ const { NotFoundError, ValidationError } = require('../utils/errors');
 const tenantMiddleware = require('../middlewares/tenantMiddleware');
 const auditService = require('./auditService');
 const { seedDefaultCategories } = require('../utils/defaultCategories');
+const { isStrongPassword } = require('../utils/validators');
 
 class AdminSubscriptionService {
   /**
@@ -121,8 +122,8 @@ class AdminSubscriptionService {
    * @param {string} actorUserId - el superadmin que ejecuta la acción (para auditoría)
    */
   async resetOwnerPassword(tenantId, newPassword, actorUserId) {
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-      throw new ValidationError('La contraseña debe tener al menos 6 caracteres');
+    if (!isStrongPassword(newPassword)) {
+      throw new ValidationError('La contraseña debe tener al menos 8 caracteres e incluir letras y números');
     }
 
     const owner = await User.findOne({

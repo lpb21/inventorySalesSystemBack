@@ -43,7 +43,7 @@ const authLimiter = rateLimit({
     }
   },
   // Incrementar contador solo en fallos de autenticación
-  skip: (req, res) => res.statusCode < 400,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
 });

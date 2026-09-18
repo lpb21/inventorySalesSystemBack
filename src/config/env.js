@@ -13,16 +13,20 @@ const fallbackFile = path.join(rootDir, '.env');
 
 require('dotenv').config({ path: fs.existsSync(envFile) ? envFile : fallbackFile });
 
-// Fail-fast: en producción, no arrancar con defaults inseguros o variables faltantes
+// Fail-fast: no arrancar con defaults inseguros o variables faltantes
 if (process.env.NODE_ENV === 'production') {
   const requeridas = ['JWT_SECRET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
   const faltantes = requeridas.filter((k) => !process.env[k]);
   if (faltantes.length > 0) {
     throw new Error(`Faltan variables de entorno obligatorias en producción: ${faltantes.join(', ')}`);
   }
-  if (process.env.JWT_SECRET === 'default-secret-change-me') {
-    throw new Error('JWT_SECRET no puede usar el valor por defecto en producción');
-  }
+}
+
+// Fallar siempre que JWT_SECRET use el valor por defecto o esté vacío,
+// sin importar NODE_ENV (excepto en development/test, donde se permite explícitamente).
+const isPermissiveEnv = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+if (!isPermissiveEnv && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'default-secret-change-me')) {
+  throw new Error('JWT_SECRET no puede usar el valor por defecto fuera de development/test');
 }
 
 module.exports = {

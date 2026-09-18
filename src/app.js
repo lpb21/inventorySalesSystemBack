@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const env = require('./config/env');
+const { AppError } = require('./utils/errors');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const requestIdMiddleware = require('./middlewares/requestIdMiddleware');
 const { generalLimiter, rateLimitLogger } = require('./middlewares/rateLimitMiddleware');
@@ -47,7 +48,7 @@ const corsOptions = {
       if (env.nodeEnv === 'development' && origin.includes('localhost')) {
         callback(null, true);
       } else {
-        callback(new Error('No permitido por CORS'));
+        callback(new AppError('No permitido por CORS', 403, 'CORS_ORIGIN_NOT_ALLOWED'));
       }
     }
   },
@@ -60,7 +61,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(requestIdMiddleware);
-app.use(cors(corsOptions));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));

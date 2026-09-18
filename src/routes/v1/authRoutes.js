@@ -14,7 +14,6 @@ const { authLimiter } = require('../../middlewares/rateLimitMiddleware');
 // Public routes with strict rate limiting
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
 router.post('/register', authLimiter, validate(registerSchema), authController.register);
-router.post('/refresh-token', authLimiter, authController.refreshToken);
 
 // Protected routes
 router.get('/me', authMiddleware, authController.me);

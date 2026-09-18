@@ -297,7 +297,7 @@ router.delete('/:id', permissionMiddleware('customers:delete'), async (req, res,
  * POST /:id/payments
  * Register a customer payment (abono)
  */
-router.post('/:id/payments', async (req, res, next) => {
+router.post('/:id/payments', permissionMiddleware('customers:create'), async (req, res, next) => {
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
@@ -331,7 +331,7 @@ router.post('/:id/payments', async (req, res, next) => {
  * GET /:id/balance
  * Get customer credit balance
  */
-router.get('/:id/balance', async (req, res, next) => {
+router.get('/:id/balance', permissionMiddleware('customers:read'), async (req, res, next) => {
   const startedAt = Date.now();
   try {
     const tenantId = req.tenant?.id;
@@ -368,7 +368,7 @@ router.get('/:id/balance', async (req, res, next) => {
  * GET /:id/credit-sales
  * Get customer credit sales history
  */
-router.get('/:id/credit-sales', async (req, res, next) => {
+router.get('/:id/credit-sales', permissionMiddleware('customers:read'), async (req, res, next) => {
   const startedAt = Date.now();
   try {
     const tenantId = req.tenant?.id;
@@ -409,7 +409,7 @@ router.get('/:id/credit-sales', async (req, res, next) => {
  * GET /with-credit
  * Get all customers with credit balance (debtors)
  */
-router.get('/with-credit/list', async (req, res, next) => {
+router.get('/with-credit/list', permissionMiddleware('customers:read'), async (req, res, next) => {
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {
@@ -436,7 +436,7 @@ router.get('/with-credit/list', async (req, res, next) => {
  * PUT /:id/credit-limit
  * Update customer credit limit
  */
-router.put('/:id/credit-limit', async (req, res, next) => {
+router.put('/:id/credit-limit', permissionMiddleware('customers:update'), async (req, res, next) => {
   try {
     const tenantId = req.tenant?.id;
     if (!tenantId) {

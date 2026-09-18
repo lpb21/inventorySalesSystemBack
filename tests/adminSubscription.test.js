@@ -123,12 +123,12 @@ describe('resetOwnerPassword (admin)', () => {
     expect(await reloaded.validatePassword('nuevaClave123')).toBe(true);
   });
 
-  test('rechaza una contraseña menor a 6 caracteres', async () => {
+  test('rechaza una contraseña sin letras y números', async () => {
     const { tenant, owner } = await createTenant('A');
 
     await expect(
       adminSubscriptionService.resetOwnerPassword(tenant.id, '123', owner.id)
-    ).rejects.toThrow(/al menos 6 caracteres/i);
+    ).rejects.toThrow(/al menos 8 caracteres e incluir letras y números/i);
   });
 
   test('rechaza un tenant sin propietario', async () => {
