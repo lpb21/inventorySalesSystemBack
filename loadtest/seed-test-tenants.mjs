@@ -171,13 +171,27 @@ async function seedTenant(index) {
 }
 
 async function main() {
-  console.log(`Sembrando ${TENANT_COUNT} tenants de prueba contra ${API_URL} ...`);
-  const tenants = [];
+  const fs = await import('node:fs/promises');
+  const outFile = new URL('./tenants.json', import.meta.url);
+
+  // Suma a los tenants ya sembrados en corridas anteriores en vez de
+  // pisarlos - así se puede ir escalando el pool de identidades (para
+  // subir TARGET_VUS) sin perder lo que ya existe en la base de datos.
+  let existingTenants = [];
+  try {
+    existingTenants = JSON.parse(await fs.readFile(outFile, 'utf-8'));
+    console.log(`Encontrados ${existingTenants.length} tenants ya sembrados en ${outFile.pathname} - se conservan.`);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  console.log(`Sembrando ${TENANT_COUNT} tenants NUEVOS de prueba contra ${API_URL} ...`);
+  const newTenants = [];
 
   for (let i = 0; i < TENANT_COUNT; i++) {
     try {
       const tenant = await seedTenant(i);
-      tenants.push(tenant);
+      newTenants.push(tenant);
       console.log(
         `  [${i + 1}/${TENANT_COUNT}] ${tenant.tenant_slug}: owner + ${tenant.cashiers.length} cashier(s) + ${tenant.product_ids.length} productos`
       );
@@ -190,12 +204,12 @@ async function main() {
     }
   }
 
-  const outFile = new URL('./tenants.json', import.meta.url);
-  await import('node:fs/promises').then((fs) =>
-    fs.writeFile(outFile, JSON.stringify(tenants, null, 2))
-  );
+  const tenants = [...existingTenants, ...newTenants];
+  await fs.writeFile(outFile, JSON.stringify(tenants, null, 2));
 
-  console.log(`\nListo. ${tenants.length} tenants escritos en ${outFile.pathname}`);
+  console.log(
+    `\nListo. ${newTenants.length} tenants nuevos agregados (${tenants.length} en total) en ${outFile.pathname}`
+  );
   console.log('Ahora corre: k6 run pos-load-test.js');
 }
 
