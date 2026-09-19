@@ -7,8 +7,8 @@ module.exports = {
     name: 'puntofresco-api',
     script: 'src/server.js',
     cwd: __dirname,
-    instances: '1', // Usar todas las CPUs disponibles
-    exec_mode: 'fork', // Modo cluster para mejor rendimiento
+    instances: '2', // Usar todas las CPUs disponibles
+    exec_mode: 'cluster', // Modo cluster para mejor rendimiento
     
     // Variables de entorno
     env: {
@@ -17,7 +17,7 @@ module.exports = {
     },
     
     // Configuración de memoria
-    max_memory_restart: '400M', // Reiniciar si excede 1GB
+    max_memory_restart: '2500M', // Reiniciar si excede 1GB
     
     // Logs
     error_file: './logs/err.log',
