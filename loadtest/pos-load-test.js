@@ -166,6 +166,7 @@ export const options = {
 // authLimiter y no reflejaría uso real (un cajero no re-loguea en cada clic).
 let vuToken = null;
 let vuIdentity = null;
+let vuShiftOpened = false;
 
 function pickIdentity() {
   const idx = (exec.vu.idInTest - 1) % identities.length;
@@ -196,6 +197,32 @@ function login(identity) {
 
 function authHeaders(token) {
   return { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } };
+}
+
+// Solo los cashiers necesitan turno de caja abierto para vender
+// (saleService.createSale lo exige por rol; los owner/admin/supervisor no).
+// Se abre una sola vez por VU - reabrir en cada iteración fallaría con
+// "Ya tienes un turno abierto" y desperdiciaría presupuesto de
+// writeOperationsLimiter sin necesidad.
+function openShiftIfNeeded(token, identity) {
+  if (vuShiftOpened || identity.role !== 'cashier') return;
+
+  const res = http.post(
+    `${BASE_URL}/cash-registers/open`,
+    JSON.stringify({ opening_amount: 50000, name: 'Turno load test' }),
+    { ...authHeaders(token), tags: { name: 'open_shift' } }
+  );
+
+  if (res.status === 429) rateLimited.add(1);
+
+  // 201 = se abrió; 400 "ya tienes un turno abierto" también es un estado
+  // válido (por ejemplo si esta VU quedó de una corrida anterior) - en
+  // ambos casos ya hay un turno abierto y no hace falta reintentar.
+  vuShiftOpened = res.status === 201 || res.status === 400;
+
+  if (!vuShiftOpened) {
+    console.error(`open shift failed: HTTP ${res.status} - ${(res.body || '').slice(0, 300)}`);
+  }
 }
 
 // ── Acciones individuales (cada una = una operación real de la app) ─────
@@ -329,6 +356,8 @@ export default function () {
       return;
     }
   }
+
+  openShiftIfNeeded(vuToken, vuIdentity);
 
   const action = pickAction();
   if (action.needsIdentity) {
