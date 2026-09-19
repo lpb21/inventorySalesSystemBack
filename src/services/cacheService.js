@@ -175,9 +175,16 @@ class CacheService {
     try {
       let deletedCount = 0;
 
-      for await (const key of this.client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
-        await this.client.del(key);
-        deletedCount++;
+      // scanIterator puede entregar una clave suelta o, según versión/lote, un
+      // array de claves - normalizamos siempre a array y filtramos lotes vacíos
+      // antes de llamar a del(), que con un array vacío falla en el servidor
+      // con "wrong number of arguments for 'del' command".
+      for await (const scanned of this.client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+        const keys = Array.isArray(scanned) ? scanned : [scanned];
+        if (keys.length === 0) continue;
+
+        await this.client.del(keys);
+        deletedCount += keys.length;
       }
 
       if (deletedCount > 0) {
