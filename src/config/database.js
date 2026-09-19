@@ -16,7 +16,7 @@ const sequelize = new Sequelize(db.name, db.user, db.password, {
     : { ssl: { require: true, rejectUnauthorized: false } },
   logging: env.nodeEnv === 'development' ? console.log : false,
   pool: {
-    max: 5,
+    max: 10,
     min: 0,
     acquire: 30000,
     idle: 10000,
