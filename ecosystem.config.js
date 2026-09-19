@@ -7,8 +7,8 @@ module.exports = {
     name: 'puntofresco-api',
     script: 'src/server.js',
     cwd: __dirname,
-    instances: 'max', // Usar todas las CPUs disponibles
-    exec_mode: 'cluster', // Modo cluster para mejor rendimiento
+    instances: '1', // Usar todas las CPUs disponibles
+    exec_mode: 'fork', // Modo cluster para mejor rendimiento
     
     // Variables de entorno
     env: {

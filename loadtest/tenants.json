@@ -1,0 +1,642 @@
+[
+  {
+    "tenant_slug": "loadtestmu7gkt2q0",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q0@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q0@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "3b32f459-69c2-4988-842d-ba6c4f270f0b",
+      "03e2c524-e69a-4093-9154-6eed73784657",
+      "ed517f53-4d75-40e9-8332-bba35572971f",
+      "8857eaf3-9899-4db7-8f78-950909af7fe6",
+      "1fb53560-0c59-4e1e-9632-638fd30eda88",
+      "864a3442-c38c-40e5-8429-1fed2150b8fc",
+      "89b37440-a7ce-4e00-87f6-f06539cf3221",
+      "499481a5-6d51-4a2f-9b0c-ed952350e75f",
+      "04b5bcf1-034b-42a6-b4f5-3cddbd919ec9",
+      "789889fa-e7b6-4f18-b350-907cfbb9d1af",
+      "9a3f8b6c-0d72-4406-abdd-c6baeeca988e",
+      "449efca6-b389-4565-8abd-b63092c316d2",
+      "3ca939f2-a07c-45c0-bc3c-da272e427c85",
+      "9b0fda00-afbb-4cf4-9720-edb06b26880d",
+      "294c0b6f-8d8a-4049-ab68-2406bd582867"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q1",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q1@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q1@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "7e7c479e-8fe7-4198-9638-a3becd932d42",
+      "544d8153-d34c-43ac-9c7d-50612f7e278d",
+      "e6986a57-1708-4e18-a159-965b3fc9852d",
+      "20b22bc8-1412-485d-98b5-4299cdd67787",
+      "9e302da0-e808-4c9a-8e5a-8f21198e3879",
+      "ea4d14f9-6cae-48b0-a633-c602356c2ff1",
+      "9fd62efb-c155-4c3c-92ef-c26a25d9802c",
+      "136f0b38-28e3-4c43-875a-24bedef5dce6",
+      "f8320d23-b0f8-4333-9faa-8b82d1fca7f7",
+      "193a92b2-4cfc-485c-87ce-249f943996c9",
+      "b57fd75a-8252-412c-807f-15a4b5fe73f9",
+      "7839623f-d93c-4696-aa49-32c9dc1ce804",
+      "c6fa8534-77d6-40b5-b46a-b39472883c9b",
+      "cdf9b197-c12e-4a38-89b5-56f00b9e8662",
+      "a9a00d04-e4a1-4313-be58-4f8949bd7dcf"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q2",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q2@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q2@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "f2cbe875-bc0c-42d8-84a0-960aec12d101",
+      "0f7b9052-d76f-4a34-a433-feff77d8d7a9",
+      "8bbf54bf-5bca-40bb-809b-8fa89bc52df0",
+      "326fcb1e-44d2-4008-9708-13b53fbdd414",
+      "52e46bcf-61b9-4680-8714-270e36fbef41",
+      "193fa104-22f5-494b-8507-9401ec7616fb",
+      "be847aae-7c85-40df-b633-77b72df5003f",
+      "5f2673b1-803c-409a-8d3a-c38816f446d7",
+      "7b060ca2-3535-44c5-bb33-42747b642b8b",
+      "0b50e533-aa13-4597-9fea-a99ac6168f18",
+      "3b1ebfbe-4575-4891-8058-f2da07222f8b",
+      "93ed43ae-d4ec-4c85-a24d-0747fa5540ea",
+      "617678dc-3688-4f95-ab56-ce867b51ca76",
+      "cec311d5-eed8-4dec-afc1-3ac2d1b002c5",
+      "9ca228e4-b24f-4613-97a3-49e02aaf7275"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q3",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q3@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q3@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "a97adb15-1527-44b1-92c0-1a98c948a387",
+      "c8933de8-0772-4d28-9a87-e6d1cfd687ef",
+      "6d1e676c-a5c4-4fae-bfd3-03899961ed7d",
+      "f6ba0d43-1893-4a0b-85f6-9656fa9852de",
+      "5293bf3c-a147-4298-8c50-43a3eaea41f8",
+      "01008b3f-91fd-4388-ac00-c62a3e2bd77c",
+      "304b4bac-1f45-43f8-8c60-298a7757e772",
+      "f9e38eac-0598-4403-9999-b5e4e07bc9e7",
+      "2dd75912-b4a6-4f16-851f-101ee4bbedd9",
+      "2ba60531-bfb0-4f4d-a392-5053c7de350e",
+      "3319d0ba-e91d-41e3-80ed-87c290c94a6d",
+      "8ee29c29-def3-41d0-ac57-83a4bd4d5eb3",
+      "5079b49d-4219-4672-95fe-9bf31d5a7fd3",
+      "484438e1-eddd-4439-bad8-12f1ec3e5e0a",
+      "f2abf62e-6a1c-486c-ab17-5d61844b39ee"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q4",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q4@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q4@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "9ea47e84-edde-44c1-874a-0ddc07880b9f",
+      "08e08c10-5478-45e6-97b3-00927c7bed35",
+      "2e315906-81df-4df9-b702-b655b683ad4f",
+      "7db039c6-de2a-410e-a965-9b83c2b43edb",
+      "f3d9f962-5f0b-41b7-91d0-6c9015d81ac1",
+      "9d611cd7-2143-4a3f-b926-8647da8470da",
+      "57edcd5e-c52b-42a0-b769-db2b1f2d1dd4",
+      "6af36c3b-f3b0-4191-8a70-1e6126a7c318",
+      "52fc35e1-1707-4fa7-a0d5-3443365205e6",
+      "087cfa2d-2c0b-45fe-8474-b9d66ac41caa",
+      "439ff3c8-9ca3-4c2f-9731-be942c2549a5",
+      "e94a584d-f56f-405f-baa8-e275546a6688",
+      "5713fade-30ef-4fea-af3f-a5a56ab652a8",
+      "6226413d-8486-47dc-b37c-ec2a6ecc718f",
+      "d2aef78a-034b-467d-9da8-f3bcd2a19c8a"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q5",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q5@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q5@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "666e86f3-086f-4770-844c-067512ec69f7",
+      "1d99d9f3-d040-47b6-9cdf-84fd1d8358ef",
+      "e6ac4511-7a0c-410f-be7b-d9c345100d39",
+      "4ea42f48-cd5e-45a8-8b28-ea792150fad3",
+      "461c6be7-dceb-4c6d-aec9-38f4f6634340",
+      "9fed2ffc-c0d5-49b7-a9d0-3c7efcf0a7bf",
+      "616a5e60-9f40-4bce-a7c4-9897b1446c5f",
+      "f88110f2-8523-42a7-acb5-8a21d1eb37fe",
+      "c0ea4796-25b5-45a1-a8e1-ba7df088f961",
+      "4f67ab4a-db12-418d-8733-356620336433",
+      "6d81885e-23e5-49ec-9fc3-49df02991de2",
+      "8303eac3-c8e8-44bd-b858-082164087f74",
+      "d36f8a51-0769-4b1f-ba44-e8958af97262",
+      "5bc3c66e-cc8e-4a41-b26b-a75255717046",
+      "081ddea7-2dd8-4216-86aa-62a82f406d60"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q6",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q6@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q6@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "8bdefa19-4f9c-4e4e-986d-85457bd4c013",
+      "ebb90255-a434-44e5-a550-e16b2d6857af",
+      "e21c1b5a-5cb2-4ed6-b795-1a2f2e99cd66",
+      "364658e5-d5b9-497f-bcb9-21efc32e0fdd",
+      "b29cf6dd-e4c0-4a12-ae3b-0f158e582caa",
+      "644d1b9f-f32c-4892-b1c3-173c795447f7",
+      "d601474e-c76f-41df-b6aa-6f9610884353",
+      "de7c3454-d8bd-4b0c-9a11-88a4256c608c",
+      "ba716178-08bc-4cf3-a234-342495e62b9b",
+      "b8e90b9e-5738-4c08-965c-d767f2960d41",
+      "9db51855-ebbe-4d9d-b514-97e812a8bd89",
+      "e8564aa9-0be5-4ec7-b820-e0c79c1fea93",
+      "c5a31b6f-cb0a-4553-9e30-a50e0db93394",
+      "f9c93c12-5a40-4187-a548-bc358f65a6fa",
+      "b4167235-8534-43e6-9c6f-a30cfbd80f2d"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q7",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q7@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q7@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "700652dd-ed38-4bf2-b104-c341c7f53ea3",
+      "2c716a92-8e9a-40c9-87af-f51da3e51db6",
+      "85bcb3a3-1185-454e-8053-b73feb5fb58b",
+      "3eae1b95-2960-4cef-bbf8-a9008066806d",
+      "fcc3ad10-5d1c-4c8f-b621-c1560d533798",
+      "78be7e8e-5a04-4f5b-a86a-e32150cbe500",
+      "64601fc1-ce58-4c2a-b57e-76d0840f782e",
+      "313aa649-e040-477e-861e-0521bb604023",
+      "7fa0fff0-0114-492a-bed9-129decc49d0d",
+      "c8a9508c-9013-497b-9201-f26d67c7cad7",
+      "5224e664-5e74-4ce1-af91-37dc28ec3d95",
+      "085011de-9c70-4ed7-8d27-e1fc089cd048",
+      "11bcfbd8-6889-4f2f-9dcb-8165b03ee61a",
+      "3215c970-8c65-4347-b539-670b3b788436",
+      "a1dc354f-1359-41b7-acb7-89cadd21d84e"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q8",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q8@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q8@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "ffb2948d-db82-4877-bba9-4f19fdbdb108",
+      "138575db-8909-4d9c-a922-34306fc0111d",
+      "d5ef4603-dab2-4044-97bf-8be8df0dd9fd",
+      "d18b2bd2-ac14-4801-809b-7be6827b039b",
+      "654c7942-2a20-4264-8d79-27cba795c38b",
+      "964e9b38-e63e-41e9-8dc8-db82ecfafa2d",
+      "138a2edc-a44f-45f9-bc4e-d8862970cf59",
+      "c2f54fc2-ab1f-42cb-b8b5-8c5360e2b168",
+      "9fb6c13a-e5d2-49bf-bcad-4ccf78a44381",
+      "bd832245-8120-49ad-ab62-7368e8295345",
+      "6a1edaa9-aa1e-4d3a-9e32-7f78b3a49260",
+      "78f69a02-3fbf-43a6-af58-c2b5eb45aa10",
+      "c7569451-3d9f-4c5d-b4b9-6d8e4b8b6e5f",
+      "bbb39579-4240-48ef-a4a7-ca758e2b07d7",
+      "db2f0360-3c95-4cee-980b-039ab76f5c49"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q9",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q9@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q9@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "ed03697f-ddbb-42ee-87ee-d03ddbb828a2",
+      "06b7b2f3-a432-4026-b5af-b67ae462ccac",
+      "8544ebaf-0776-4ed4-9061-7eaec8ff9e56",
+      "61e4abb5-fa55-4daa-908d-fb22ee149899",
+      "23f256b4-a04d-4ede-aea8-706917def121",
+      "b00cb410-d311-46a9-b4cb-f16ab1c32073",
+      "8d89b2d9-8076-4f3f-8da9-8cf57d757af4",
+      "d30aac52-0f9e-465a-b9d3-a47eea4ad346",
+      "e5b99b13-2a21-4b0a-a1ec-e0b7f1fd9dcf",
+      "216a98be-a911-475d-922e-1933efd78a26",
+      "6ef328f1-ba11-4584-b630-c57baf419318",
+      "b8dad6b0-a137-4a23-930f-adf4d6fb8e23",
+      "748eddba-5720-4614-aa86-d73172537beb",
+      "7348ad9f-0440-4497-8584-2b6118a3b9af",
+      "16ae2b4b-3e4a-4333-b10a-7c1ae2242fc1"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q10",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q10@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q10@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "eed95ed8-c7bb-43fa-bea3-45d49430515c",
+      "812238b9-6f3d-4cef-bbe1-a55821b2133e",
+      "fe78b6ad-e2f9-4cec-a382-6c92519f1cd2",
+      "b892d5e0-9e96-44bc-a57c-a6485bdcc3c4",
+      "f0c6cd9b-2bde-4193-b3c9-7054bb0d93a2",
+      "bf69f547-b8f7-486f-a94c-dd2c8eb1c325",
+      "8fe5cba6-5c16-44b4-af78-4dd2d14945de",
+      "391bf2e0-ee5d-4444-aaec-a491c8e85eeb",
+      "88d204ae-9a8e-4194-b980-dc9daf5fb908",
+      "ac50122c-084c-4e88-b2bf-509d7b719032",
+      "225c733d-d4a2-4daa-a545-84df6395510c",
+      "c95b9917-6bb2-43f0-b5d6-3d97d16e398a",
+      "6c1c70bf-0929-4722-af5d-3ea89f79cb29",
+      "987aa91a-1245-4c5b-9376-fe77a6193793",
+      "4560ade6-c056-4237-a958-b6a00fc3921a"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q11",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q11@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q11@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "800d1696-1127-4318-854e-f05889237f7d",
+      "8b146ff0-f938-4bb9-a595-b1da671ef621",
+      "a55e02ae-e025-4048-ace8-2e39a4eb6a59",
+      "8a33fdbd-8efa-491c-bf74-84f132a651d9",
+      "e6bfcca1-90a8-4c5b-8fd3-f5aa5e9596cb",
+      "d51b2a35-2bb4-4813-94a9-80ba52e34068",
+      "36439112-45c7-460f-b21e-df0abc9be909",
+      "1891723e-432f-4810-b844-9a67e7ef2bab",
+      "9f8d6e67-0e48-4c71-8c59-5a0d421e538d",
+      "4293db43-0f35-4b14-9252-f9d0a4b81887",
+      "11aa9255-2f1c-4ffd-a459-84d243d9273d",
+      "c829f346-9f67-4dea-ab5f-ead85a42c0d8",
+      "535c479f-4aa0-4bea-bbda-decee685eb8c",
+      "149e20c9-dddf-4fe8-a0a9-9a6201b6cdd6",
+      "e31cd893-6707-4981-ba3a-79dd113ec2a0"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q12",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q12@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q12@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "010323a8-4bbe-45e6-bac0-99f9f1384024",
+      "305e8cbd-caff-46ec-9e0a-86df50dd6682",
+      "baeff1ad-c6d7-4a43-91d8-641f0437a8e2",
+      "d6ed345b-d6fd-4441-b119-c5e3597d6045",
+      "0ef86c30-7ddb-4bd7-aa31-6d6925fac0c6",
+      "2e12f23d-6d40-4343-ad3b-89249a7bdebc",
+      "1dd81622-76f4-4346-b5f4-59f583769cac",
+      "0ebff0f3-3741-4321-b01a-efb76f1eb2bd",
+      "8c810126-eaa0-4696-8f23-aab9e142f535",
+      "9479717b-836f-4bb4-900c-0f412d1e869d",
+      "b66b6346-2ccd-4fbe-881f-f86867f12434",
+      "be92a432-5f76-4638-b6b0-e98036ae1313",
+      "ff517326-b663-40e0-84b3-cd67b131cfed",
+      "10036644-984d-46c5-a07a-0935d79055be",
+      "ee7e7275-8a7e-42d0-8475-8ba93bae10b8"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q13",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q13@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q13@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "dd28e718-7a0d-4cf0-a169-8d004ed468bd",
+      "a12979f0-ec16-4c7a-a568-70bc56c6bd7e",
+      "463c1ffc-9d17-43f7-8e98-03da2dc49940",
+      "7fbbf23b-ea84-44b4-9e75-7bb10db9018b",
+      "7039975b-fc35-490c-99c0-38d9802494ac",
+      "0d8218b9-3ddf-4623-a9bc-274c09cf96d4",
+      "c483c4bf-18b7-46cc-ba74-6bb7eaaa4630",
+      "e79d66e7-b43d-4345-94b6-382c70088316",
+      "9ac39803-4ec7-4dad-8794-aad36c29840d",
+      "eb7450e8-4fef-4ee4-9dbb-596872d1f2e4",
+      "d93f09f0-3a29-433d-aa01-0f8c4796ee25",
+      "44fbebbf-b2bc-42f5-b53c-3546576cd382",
+      "836d9615-1e6a-44d8-8e38-a33395da9f85",
+      "f031a7ce-3d4c-4ecb-8b40-8dadee556b08",
+      "9a7823f5-3cd3-4aa2-ac5d-1ddd822c0774"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q14",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q14@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q14@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "9a57c071-1b64-4019-8f7e-e62b296da5f8",
+      "98afed45-3efd-4c4b-8e2a-eb8832e20b0f",
+      "dbd14b69-5eee-48cb-97f3-f1cb6811489d",
+      "265741d1-79b4-458c-96ce-1a0bad6d8c68",
+      "9bae7536-3efb-4a5d-8958-2784f535a2ba",
+      "f14deb1e-97d7-4cae-9b20-8f8f7b499122",
+      "6e9764db-0bb3-4171-baca-5bb3518721f6",
+      "7edf0b29-80b7-4231-9c50-238fbed32572",
+      "a241ef47-b001-4196-9f2f-ca495b429d67",
+      "71e97e51-17bb-4e95-962d-bba1e38e12a8",
+      "12509a36-2afa-4689-9482-86b742d50991",
+      "a7e4d4e2-9577-4d30-bde8-b08ca077b65e",
+      "51d803bf-bc2c-4972-9bbb-1c545b5d2954",
+      "be71f483-7582-46e6-8088-a5f90db68c8f",
+      "88d2fbba-bcf6-40c4-a69d-d2f8b6f5c07c"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q15",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q15@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q15@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "5cb47d05-8555-4f2d-811e-73daad102c74",
+      "72fa2337-862c-4e7f-a02d-98c36780ce1e",
+      "cc1095ec-3afe-42ec-b7e7-bce70fe44d40",
+      "1b03cb94-b9aa-4df5-bf7f-343dde4d933c",
+      "24746bb8-ac44-43cd-b815-1b3d97b56f26",
+      "55027ed4-1713-4b99-9f05-e05625850efc",
+      "95c0e309-3f0d-4379-86ef-eb4d9e650a78",
+      "cc3366e9-58ca-463c-8db0-69685beb02cb",
+      "79e036aa-45f9-42c6-9ba7-7198e6c54c0c",
+      "0346aa9b-d181-478d-9cb0-394fba69f3f0",
+      "81cdfa45-408c-4f51-94c5-906347a5d18a",
+      "6fc1766c-4ac2-4dbf-98a6-ffd366a70e1a",
+      "e2a18686-a8ac-4b54-b1a3-7035ab8c8e36",
+      "18354a76-6535-4ee0-947f-855ac843a9ef",
+      "fc03842b-4989-48a6-8a9d-5e01527fce1a"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q16",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q16@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q16@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "dbb0c5cc-b5d9-42ca-a514-ac25ca52159c",
+      "4778b90a-7107-4854-970a-35828e6a6818",
+      "ed752599-52bc-434f-a348-e6eeac670fe5",
+      "f9b24680-0283-4101-92a6-ca46075ae40a",
+      "32c85a59-a638-4eb8-a123-f46f65170a06",
+      "d6754c94-1566-481e-a3d4-974df3cebf7c",
+      "a1e3e2f8-4ddb-447b-be41-1ef253785443",
+      "dd0f67b8-f715-4ae5-b404-1cf103fd3ee0",
+      "1f64878b-d775-4c94-b523-faa44aae1394",
+      "bee5cc7a-6db5-4b75-93cf-51d947943664",
+      "c3fecd80-e296-4a05-9e26-3a276d5e2241",
+      "69d7f9cd-4850-4c9d-8b5a-30ef42561fe9",
+      "301ac58a-7344-480a-9e62-df34a294984b",
+      "912271e8-64f4-40d5-add4-61cc60383292",
+      "9cf82b23-6950-4e1e-8d33-217a2d780e32"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q17",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q17@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q17@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "e5eaa98f-5d6a-462a-9e3a-7c5140c6909f",
+      "11e588de-19dd-4a5b-ba34-c84d762d31e9",
+      "a33e7720-75d9-4e72-a0a8-f3a9019184d4",
+      "e52833fc-b965-40ae-810f-c65751de6345",
+      "2742ed1b-5d87-46ac-9f94-919c7836301c",
+      "e9510973-2922-45aa-b423-0eb042fadb9e",
+      "edf9f0a9-78fa-4ac2-b4e1-d49178aca0c7",
+      "72bbacc0-d569-46a7-855e-83606d34e080",
+      "ddd282d0-c1d8-427d-a328-f864df95fba6",
+      "14c4f57b-3155-4d33-9034-65f69a4b7d9c",
+      "65812ca3-411f-49f1-8f01-a01f77253a70",
+      "2490054e-b252-4962-81f7-244ca74e0885",
+      "f82d413f-77eb-4b0e-9469-cc6e87d560f3",
+      "a4844471-2f38-4c48-a25c-bb69bf0d9afa",
+      "69a2b9e1-a5d9-4546-a220-20be91418a36"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q18",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q18@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q18@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "bca0844d-bf02-4426-ade7-d0e248e59084",
+      "a0f3335b-d572-4718-992d-49ea38a7666c",
+      "58bb7220-9f6c-4eb4-a28b-ab489db0a130",
+      "3f942c30-e13e-408d-b6ee-7f474d74681d",
+      "fa0faa71-c73a-46fd-9d4d-43432e5b7b24",
+      "5c642088-0c74-4d02-9845-8277fdee3521",
+      "08a88bd0-52f3-4fea-a1e9-4f5a3a06d289",
+      "d257fab2-ff1a-4aa0-8f01-ba0740e8b56c",
+      "23804368-8309-4496-8a74-fa27947b4acb",
+      "0fd21f46-60fc-4cae-8c83-e4845002a265",
+      "c1d29c5f-232a-48d4-bc3b-800915d1c753",
+      "249bb23c-bba4-48b6-aaad-b08d6dc6a55f",
+      "aa79881b-dea5-4cf0-a8bb-9ccf40aed51a",
+      "9f4aca3d-5e23-4637-a76e-9bb04bf97caa",
+      "ef006367-2071-4040-8d03-15a732a7c3eb"
+    ]
+  },
+  {
+    "tenant_slug": "loadtestmu7gkt2q19",
+    "owner": {
+      "email": "owner+loadtestmu7gkt2q19@loadtest.example.com",
+      "password": "LoadTest123!",
+      "role": "owner"
+    },
+    "cashiers": [
+      {
+        "email": "cashier0+loadtestmu7gkt2q19@loadtest.example.com",
+        "password": "LoadTest123!",
+        "role": "cashier"
+      }
+    ],
+    "product_ids": [
+      "4ea1d43c-f8c4-4f09-b487-575e503cfe11",
+      "725fc981-9221-4d2d-bc81-b16b51a212b0",
+      "fd6be262-ab98-4e79-bf53-e6a39d6a175f",
+      "572c6fff-0726-4a2d-9eb4-85a876bd8e50",
+      "610315a0-ebec-4c72-bdff-1e4c7981a2e4",
+      "1312eb06-3c46-4cee-aecf-b6cbe531a953",
+      "07dbf868-a210-468e-9564-329b9206c2e4",
+      "14e97a56-4b04-4bcb-bb3d-8a15e86cbc0e",
+      "8fe07506-dbfd-4640-83c9-7807b8601049",
+      "3f9d1b44-69be-4f78-9a60-3abc79de1bda",
+      "5f1902a9-beb4-4ab7-a38e-6519d6273d21",
+      "1ba40087-64f3-4369-a608-34444b23a865",
+      "89691c62-b155-4b1f-aef1-e3cc59c53551",
+      "80a459cd-1d48-4e9f-9412-cc0d3edd2c10",
+      "ee4f1906-b794-452b-94ce-c1d795e7b39a"
+    ]
+  }
+]
