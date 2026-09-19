@@ -325,21 +325,31 @@ function actionCreateSale(token, identity) {
 // stock + movimientos de inventario) son una fracción del tráfico total.
 const ACTIONS = [
   { weight: 35, run: actionListProducts, needsIdentity: false },
-  { weight: 15, run: actionDashboard, needsIdentity: false },
+  // 'reports:read' (permissionMiddleware.js) excluye al rol cashier - si se
+  // le deja disparar esta acción, el 403 esperado infla el % de fallas del
+  // test con algo que no es un problema del backend sino del propio rol.
+  { weight: 15, run: actionDashboard, needsIdentity: false, requiresReportsAccess: true },
   { weight: 10, run: actionInventory, needsIdentity: false },
   { weight: 10, run: actionCustomers, needsIdentity: false },
   { weight: 10, run: actionSalesToday, needsIdentity: false },
   { weight: 20, run: actionCreateSale, needsIdentity: true },
 ];
-const TOTAL_WEIGHT = ACTIONS.reduce((sum, a) => sum + a.weight, 0);
 
-function pickAction() {
-  let r = Math.random() * TOTAL_WEIGHT;
-  for (const action of ACTIONS) {
+// Debe reflejar exactamente los roles permitidos en 'reports:read' dentro de
+// src/middlewares/permissionMiddleware.js del backend.
+const REPORTS_READ_ROLES = ['owner', 'admin', 'supervisor', 'superadmin'];
+
+function pickAction(identity) {
+  const canViewReports = REPORTS_READ_ROLES.includes(identity.role);
+  const pool = ACTIONS.filter((a) => !a.requiresReportsAccess || canViewReports);
+  const totalWeight = pool.reduce((sum, a) => sum + a.weight, 0);
+
+  let r = Math.random() * totalWeight;
+  for (const action of pool) {
     if (r < action.weight) return action;
     r -= action.weight;
   }
-  return ACTIONS[0];
+  return pool[0];
 }
 
 export default function () {
@@ -359,7 +369,7 @@ export default function () {
 
   openShiftIfNeeded(vuToken, vuIdentity);
 
-  const action = pickAction();
+  const action = pickAction(vuIdentity);
   if (action.needsIdentity) {
     action.run(vuToken, vuIdentity);
   } else {
