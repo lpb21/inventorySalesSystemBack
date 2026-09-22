@@ -1,11 +1,12 @@
 /**
- * Customer Model
- * Represents customers within a tenant (optional)
+ * CustomerPayment Model
+ * Registro histórico de abonos de un cliente a su saldo de crédito.
+ * Tabla creada por la migración 007-create-customer-payments.
  */
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const Customer = sequelize.define('Customer', {
+const CustomerPayment = sequelize.define('CustomerPayment', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -14,71 +15,47 @@ const Customer = sequelize.define('Customer', {
   tenant_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    references: {
-      model: 'tenants',
-      key: 'id',
-    },
     field: 'tenant_id',
   },
-  name: {
-    type: DataTypes.STRING(255),
+  customer_id: {
+    type: DataTypes.UUID,
     allowNull: false,
-  },
-  document: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-  },
-  email: {
-    type: DataTypes.STRING(255),
-    allowNull: true,
-    validate: {
-      isEmail: true,
+    references: {
+      model: 'customers',
+      key: 'id',
     },
+    field: 'customer_id',
   },
-  phone: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-  },
-  phone_country: {
-    type: DataTypes.STRING(2),
+  amount: {
+    type: DataTypes.DECIMAL(12, 2),
     allowNull: false,
-    defaultValue: 'CO',
-    field: 'phone_country',
   },
-  phone_e164: {
-    type: DataTypes.STRING(20),
-    allowNull: true,
-    field: 'phone_e164',
+  previous_balance: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    field: 'previous_balance',
   },
-  address: {
+  new_balance: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    field: 'new_balance',
+  },
+  note: {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  is_active: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-    field: 'is_active',
-  },
-  credit_balance: {
-    type: DataTypes.DECIMAL(12, 2),
-    allowNull: false,
-    defaultValue: 0,
-    field: 'credit_balance',
-  },
-  credit_limit: {
-    type: DataTypes.DECIMAL(12, 2),
-    allowNull: false,
-    defaultValue: 0,
-    field: 'credit_limit',
+  created_by: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'created_by',
   },
 }, {
-
-  tableName: 'customers',
-  indexes: [
-    {
-      fields: ['tenant_id', 'document'],
-    },
-  ],
+  tableName: 'customer_payments',
+  underscored: true,
+  // La tabla solo tiene created_at (los abonos no se editan)
+  updatedAt: false,
+  // Sin `indexes` aquí: el índice (tenant_id, customer_id) lo crea la migración 007;
+  // declararlo también en el modelo haría chocar sync + migración en los tests.
 });
 
-module.exports = Customer;
+module.exports = CustomerPayment;
