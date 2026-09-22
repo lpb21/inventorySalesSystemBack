@@ -295,6 +295,17 @@ function validateSupplierData(data, isCreate = true) {
   };
 }
 
+// Announcements
+const createAnnouncementSchema = Joi.object({
+  message: Joi.string().required().min(1).max(1000),
+  expires_at: Joi.date().iso().optional().allow(null),
+});
+
+const updateAnnouncementSchema = Joi.object({
+  message: Joi.string().optional().min(1).max(1000),
+  expires_at: Joi.date().iso().optional().allow(null),
+});
+
 module.exports = {
   // Auth
   loginSchema,
@@ -344,5 +355,9 @@ module.exports = {
 
   transformSchema,
   createRecipeSchema,
-  updateRecipeSchema
+  updateRecipeSchema,
+
+  // Announcements
+  createAnnouncementSchema,
+  updateAnnouncementSchema
 };

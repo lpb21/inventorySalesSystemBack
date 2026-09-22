@@ -20,6 +20,8 @@ const TenantSubscription = require('./TenantSubscription');
 const BillingWebhookEvent = require('./BillingWebhookEvent');
 const Recipe = require('./Recipe');
 const RecipeItem = require('./RecipeItem');
+const CustomerPayment = require('./CustomerPayment');
+const Announcement = require('./Announcement');
 
 // =====================
 // Tenant associations
@@ -161,6 +163,14 @@ TenantSubscription.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
 Tenant.hasMany(BillingWebhookEvent, { foreignKey: 'tenant_id', as: 'billingWebhookEvents' });
 BillingWebhookEvent.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
 
+Customer.hasMany(CustomerPayment, { foreignKey: 'customer_id', as: 'payments' });
+CustomerPayment.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
+
+// =====================
+// Announcement associations
+// =====================
+Announcement.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+
 // =====================
 // Export all models
 // =====================
@@ -182,5 +192,7 @@ module.exports = {
   TenantSubscription,
   BillingWebhookEvent,
   Recipe,
-  RecipeItem
+  RecipeItem,
+  CustomerPayment,
+  Announcement
 };

@@ -71,12 +71,6 @@ const Customer = sequelize.define('Customer', {
     defaultValue: 0,
     field: 'credit_limit',
   },
-  whatsapp_notifications_enabled: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: true,
-    field: 'whatsapp_notifications_enabled',
-  },
 }, {
 
   tableName: 'customers',

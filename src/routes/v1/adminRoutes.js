@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../../controllers/adminController');
 const authMiddleware = require('../../middlewares/authMiddleware');
+const { validate } = require('../../middlewares/validationMiddleware');
+const { createAnnouncementSchema, updateAnnouncementSchema } = require('../../utils/validators');
 
 // Guard de superadmin: bloquea a cualquiera que no sea superadmin
 const superadminOnly = (req, res, next) => {
@@ -27,5 +29,9 @@ router.post('/tenants/:id/deactivate', adminController.deactivateTenant);
 router.post('/tenants/:id/reset-owner-password', adminController.resetOwnerPassword);
 router.post('/tenants', adminController.createTenant);
 
+router.get('/announcements', adminController.listAnnouncements);
+router.post('/announcements', validate(createAnnouncementSchema), adminController.createAnnouncement);
+router.put('/announcements/:id', validate(updateAnnouncementSchema), adminController.updateAnnouncement);
+router.patch('/announcements/:id/toggle', adminController.toggleAnnouncement);
 
 module.exports = router;

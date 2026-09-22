@@ -114,6 +114,7 @@ class SaleService {
       // Handle credit sales differently
       const isCreditSale = saleData.payment_method === 'credit';
       let paymentReceived, changeGiven;
+      let creditBalanceAfterSale = null;
 
       if (isCreditSale) {
         // For credit sales, no immediate payment received
@@ -145,9 +146,9 @@ class SaleService {
           );
         }
 
-
         // Update customer credit balance
         await customer.update({ credit_balance: newBalance }, { transaction });
+        creditBalanceAfterSale = newBalance;
       } else {
         // Regular sale - Si payment_received no está definido o es 0, usar el total
         paymentReceived = parseFloat(saleData.payment_received) || total;
@@ -307,6 +308,7 @@ class SaleService {
           id: product.id,
           stock: newStock,
         })),
+        customer_credit_balance: creditBalanceAfterSale,
       };
     } catch (error) {
       if (transaction && !transaction.finished) {

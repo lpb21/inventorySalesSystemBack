@@ -5,6 +5,7 @@
 const adminSubscriptionService = require('../services/adminSubscriptionService');
 const { asyncHandler, formatResponse } = require('../utils/helpers');
 const auditService = require('../services/auditService');
+const announcementService = require('../services/announcementService');
 
 class AdminController {
   /**
@@ -80,6 +81,42 @@ class AdminController {
       tenantId: tenantId || undefined,
       action: action || undefined,
     });
+    res.status(200).json(formatResponse(result));
+  });
+
+  /**
+   * GET /v1/admin/announcements
+   * Lista todos los anuncios (activos e inactivos). Solo superadmin.
+   */
+  listAnnouncements = asyncHandler(async (req, res) => {
+    const result = await announcementService.list();
+    res.status(200).json(formatResponse(result));
+  });
+
+  /**
+   * POST /v1/admin/announcements
+   * Crea un nuevo anuncio global. Solo superadmin.
+   */
+  createAnnouncement = asyncHandler(async (req, res) => {
+    const result = await announcementService.create(req.body, req.user.userId);
+    res.status(201).json(formatResponse(result));
+  });
+
+  /**
+   * PUT /v1/admin/announcements/:id
+   * Edita el mensaje o la fecha de expiración de un anuncio. Solo superadmin.
+   */
+  updateAnnouncement = asyncHandler(async (req, res) => {
+    const result = await announcementService.update(req.params.id, req.body);
+    res.status(200).json(formatResponse(result));
+  });
+
+  /**
+   * PATCH /v1/admin/announcements/:id/toggle
+   * Activa o desactiva un anuncio existente. Solo superadmin.
+   */
+  toggleAnnouncement = asyncHandler(async (req, res) => {
+    const result = await announcementService.toggleActive(req.params.id);
     res.status(200).json(formatResponse(result));
   });
 }

@@ -12,7 +12,7 @@ El sistema de rate limiting ha sido implementado para proteger la API contra sat
 - **Aplicado**: Globalmente en `app.js`
 
 ### **2. Rate Limiter de Autenticación**
-- **Alcance**: `/v1/auth/*` (login, register, refresh-token) 
+- **Alcance**: `/v1/auth/*` (login, register) 
 - **Límite**: 20 intentos por 15 minutos por IP
 - **Especial**: Solo cuenta intentos fallidos (status >= 400)
 - **Protección**: Ataques de fuerza bruta

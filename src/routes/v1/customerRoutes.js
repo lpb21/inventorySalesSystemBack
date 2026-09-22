@@ -94,9 +94,15 @@ router.post('/', permissionMiddleware('customers:create'), async (req, res, next
       ? req.body.data
       : req.body;
 
-    const { id, name, document, email, phone, address, credit_limit } = payload;
+    const { id, name, document, email, phone, phone_country, address, credit_limit } = payload;
     const normalizedDocument = typeof document === 'string' ? document.trim() : document;
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
+
+    const { normalizePhone } = require('../../utils/phone');
+    const phoneResult = normalizePhone(phone_country, phone);
+    if (!phoneResult.ok) {
+      throw new ValidationError(phoneResult.error);
+    }
 
     // Si viene un ID en el cuerpo de un POST, el usuario probablemente está intentando editar
     // pero su frontend está llamando a la ruta equivocada o no detectó el ID en el envoltorio.
@@ -143,6 +149,8 @@ router.post('/', permissionMiddleware('customers:create'), async (req, res, next
       document: normalizedDocument || null,
       email: normalizedEmail || null,
       phone: phone || null,
+      phone_country: phone_country || 'CO',
+      phone_e164: phoneResult.e164,
       address: address || null,
       credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
       credit_balance: 0,
@@ -196,9 +204,19 @@ router.put('/:id', permissionMiddleware('customers:update'), async (req, res, ne
       ? req.body.data
       : req.body;
 
-    const { name, document, email, phone, address, credit_limit, is_active } = payload;
+    const { name, document, email, phone, phone_country, address, credit_limit, is_active } = payload;
     const normalizedDocument = typeof document === 'string' ? document.trim() : document;
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
+
+    let phoneE164 = customer.phone_e164;
+    if (phone !== undefined) {
+      const { normalizePhone } = require('../../utils/phone');
+      const phoneResult = normalizePhone(phone_country || customer.phone_country, phone);
+      if (!phoneResult.ok) {
+        throw new ValidationError(phoneResult.error);
+      }
+      phoneE164 = phoneResult.e164;
+    }
 
     if (normalizedDocument !== undefined && normalizedDocument !== customer.document) {
       const existingCustomerByDocument = await Customer.findOne({
@@ -233,6 +251,8 @@ router.put('/:id', permissionMiddleware('customers:update'), async (req, res, ne
       document: document !== undefined ? normalizedDocument : customer.document,
       email: email !== undefined ? normalizedEmail : customer.email,
       phone: phone !== undefined ? phone : customer.phone,
+      phone_country: phone_country !== undefined ? phone_country : customer.phone_country,
+      phone_e164: phoneE164,
       address: address !== undefined ? address : customer.address,
       credit_limit: credit_limit !== undefined ? parseFloat(credit_limit) : customer.credit_limit,
       is_active: is_active !== undefined ? is_active : customer.is_active,
@@ -459,6 +479,49 @@ router.put('/:id/credit-limit', permissionMiddleware('customers:update'), async 
       success: true,
       message: 'Límite de crédito actualizado exitosamente',
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /:id/whatsapp-notifications
+ * Toggle WhatsApp notification opt-in for a customer
+ */
+router.patch('/:id/whatsapp-notifications', permissionMiddleware('customers:update'), async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    if (!tenantId) {
+      throw new ValidationError('Tenant no encontrado');
+    }
+
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      throw new ValidationError('El campo enabled es requerido y debe ser booleano');
+    }
+
+    const customer = await Customer.findOne({
+      where: { id: req.params.id, tenant_id: tenantId },
+    });
+
+    if (!customer) {
+      throw new ValidationError('Cliente no encontrado');
+    }
+
+    await customer.update({ whatsapp_notifications_enabled: enabled });
+
+    await cacheService.invalidate(
+      cacheService.getCustomersWithCreditPattern(tenantId)
+    );
+
+    res.status(200).json({
+      success: true,
+      message: enabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas',
+      data: {
+        id: customer.id,
+        whatsapp_notifications_enabled: enabled,
+      },
     });
   } catch (error) {
     next(error);

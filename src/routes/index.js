@@ -21,6 +21,7 @@ const cashRegisterRoutes = require('./v1/cashRegisterRoutes');
 const billingRoutes = require('./v1/billingRoutes');
 const adminRoutes = require('./v1/adminRoutes');
 const recipeRoutes = require('./v1/recipeRoutes');
+const announcementRoutes = require('./v1/announcementRoutes');
 
 
 // Mount routes (without /v1/ prefix since it's added in app.js)
@@ -39,5 +40,6 @@ router.use('/settings', settingsRoutes);
 router.use('/billing', billingRoutes);
 router.use('/admin', adminRoutes);
 router.use('/recipes', recipeRoutes);
+router.use('/announcements', announcementRoutes);
 
 module.exports = router;
