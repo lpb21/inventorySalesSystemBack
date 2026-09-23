@@ -137,6 +137,8 @@ const productSchema = Joi.object({
   image_url: optionalString,
   expiry_date: Joi.string().optional().allow(null, ''),
   is_active: optionalBoolean.default(true),
+  // No se guarda: indica que el front va a subir foto propia, así que no se busca en OFF
+  skip_image_lookup: optionalBoolean,
 });
 
 const updateProductSchema = Joi.object({
@@ -155,6 +157,7 @@ const updateProductSchema = Joi.object({
   image_url: optionalString,
   expiry_date: Joi.string().optional().allow(null, ''),
   is_active: optionalBoolean,
+  skip_image_lookup: optionalBoolean,
 }).options({ allowUnknown: false }); // Esto rechaza campos no definidos
 
 // Inventory schemas

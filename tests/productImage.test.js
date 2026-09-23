@@ -352,6 +352,61 @@ describe('Vista previa por código de barras (GET /products/lookup/:barcode)', (
   });
 });
 
+describe('skip_image_lookup (el front sube foto propia tras crear/editar)', () => {
+  const env = require('../src/config/env');
+  let enqueueSpy;
+
+  beforeEach(() => {
+    env.openFoodFacts.enabled = true;
+    // Espía sin ejecutar la cola real (nada sale a internet)
+    enqueueSpy = jest.spyOn(productImageService, 'enqueue').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    env.openFoodFacts.enabled = false;
+    enqueueSpy.mockRestore();
+  });
+
+  const newProduct = (extra = {}) => ({
+    name: 'Gaseosa', unit: 'und', price: 3000, cost: 2000, stock: 5, min_stock: 1,
+    barcode: '7702004003591', ...extra,
+  });
+
+  test('sin el flag, crear con código de barras encola la búsqueda en OFF', async () => {
+    const { tenant, owner } = await createTenant('A');
+
+    await productService.createProduct(tenant.id, newProduct(), owner.id);
+
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('con el flag, crear NO encola (evita competir con la subida del usuario)', async () => {
+    const { tenant, owner } = await createTenant('A');
+
+    const product = await productService.createProduct(tenant.id, newProduct({ skip_image_lookup: true }), owner.id);
+
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    // El flag no es una columna: no debe romper ni persistirse
+    expect(product.get('skip_image_lookup')).toBeUndefined();
+  });
+
+  test('con el flag, editar NO encola', async () => {
+    const { tenant, owner, product } = await createTenant('A');
+
+    await productService.updateProduct(tenant.id, product.id, { barcode: '7702004003591', skip_image_lookup: true }, owner.id);
+
+    expect(enqueueSpy).not.toHaveBeenCalled();
+  });
+
+  test('sin el flag, editar agregando código de barras encola', async () => {
+    const { tenant, owner, product } = await createTenant('A');
+
+    await productService.updateProduct(tenant.id, product.id, { barcode: '7702004003591' }, owner.id);
+
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('Integración con productService', () => {
   test('createProduct no guarda hotlinks de OFF ni acepta image_source del cliente', async () => {
     const { tenant, owner } = await createTenant('A');

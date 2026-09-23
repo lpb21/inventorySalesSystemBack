@@ -52,6 +52,12 @@ Si no se encuentra: `{ "found": false, "barcode": "…", "reason": "not_found" |
 **No enviar `imageUrl` como `image_url`** al crear el producto: el backend descarta los enlaces de OFF
 y, tras crear el producto, descarga, procesa y sube la imagen en segundo plano. Al recargar el listado ya aparece con su URL propia.
 
+### Crear/editar con foto propia: `skip_image_lookup`
+
+Si el usuario eligió una foto, enviar `skip_image_lookup: true` en el `POST`/`PUT` del producto y
+luego subir la foto con `PUT /:id/image`. Así el backend no encola la búsqueda en OFF, que podría
+competir con esa subida sobre la misma clave de S3. El campo no se guarda en la base de datos.
+
 ### `PUT /v1/products/:id/image`
 
 ```js

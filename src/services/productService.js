@@ -73,7 +73,9 @@ class ProductService {
 
     // El origen de la imagen lo gestiona el backend, nunca el cliente.
     // Un hotlink a Open Food Facts no se guarda: la imagen se procesa y sube a S3 en segundo plano.
-    const { image_source, image_source_ref, ...cleanData } = productData;
+    // skip_image_lookup: el front va a subir foto propia justo después; no se encola OFF
+    // (evita que el job de OFF compita con esa subida sobre la misma clave de S3).
+    const { image_source, image_source_ref, skip_image_lookup, ...cleanData } = productData;
     if (isOpenFoodFactsUrl(cleanData.image_url)) {
       cleanData.image_url = null;
     }
@@ -97,7 +99,9 @@ class ProductService {
     });
 
     // Autocompletar imagen desde Open Food Facts (en segundo plano, no bloquea la respuesta)
-    productImageService.enqueueIfNeeded(product);
+    if (!skip_image_lookup) {
+      productImageService.enqueueIfNeeded(product);
+    }
 
     return product;
   }
@@ -228,7 +232,10 @@ class ProductService {
       });
 
       // Si ahora tiene código de barras y no tiene imagen, intentar autocompletarla
-      productImageService.enqueueIfNeeded(product);
+      // (salvo que el front vaya a subir foto propia a continuación)
+      if (!productData.skip_image_lookup) {
+        productImageService.enqueueIfNeeded(product);
+      }
 
       return product;
 
