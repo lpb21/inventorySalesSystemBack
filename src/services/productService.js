@@ -9,6 +9,8 @@ const { getPaginationSkip, formatPagination } = require('../utils/helpers');
 const auditService = require('./auditService');
 const cacheService = require('./cacheService');
 const supplierService = require('./supplierService');
+const productImageService = require('./productImageService');
+const { isOpenFoodFactsUrl } = require('./openFoodFactsService');
 const categoryService = require('./categoryService');
 const { normalizeUnit, normalizeDate, deriveTypeFromUnit } = require('../utils/csvValues');
 const logger = require('../utils/logger');
@@ -69,10 +71,17 @@ class ProductService {
       }
     }
 
+    // El origen de la imagen lo gestiona el backend, nunca el cliente.
+    // Un hotlink a Open Food Facts no se guarda: la imagen se procesa y sube a S3 en segundo plano.
+    const { image_source, image_source_ref, ...cleanData } = productData;
+    if (isOpenFoodFactsUrl(cleanData.image_url)) {
+      cleanData.image_url = null;
+    }
+
     const product = await Product.create({
-      ...productData,
+      ...cleanData,
       tenant_id: tenantId,
-      type: deriveTypeFromUnit(productData.unit || 'und'),
+      type: deriveTypeFromUnit(cleanData.unit || 'und'),
     });
 
     // Log audit
@@ -86,6 +95,9 @@ class ProductService {
     cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
       logger.warn('products', 'No se pudo invalidar caché de productos', { error: err.message });
     });
+
+    // Autocompletar imagen desde Open Food Facts (en segundo plano, no bloquea la respuesta)
+    productImageService.enqueueIfNeeded(product);
 
     return product;
   }
@@ -195,6 +207,9 @@ class ProductService {
         }
       }
 
+      // Cambios manuales de image_url: mantiene image_source coherente y limpia S3
+      await productImageService.applyImageUrlChange(tenantId, product, filteredData);
+
       await product.update(filteredData);
 
       // Log audit for product update
@@ -211,6 +226,9 @@ class ProductService {
       cacheService.invalidate(cacheService.getProductsPattern(tenantId)).catch((err) => {
         logger.warn('products', 'No se pudo invalidar caché de productos', { error: err.message });
       });
+
+      // Si ahora tiene código de barras y no tiene imagen, intentar autocompletarla
+      productImageService.enqueueIfNeeded(product);
 
       return product;
 
@@ -646,7 +664,7 @@ class ProductService {
           min_stock: minStock,
           unit: unitResult.value,
           type: deriveTypeFromUnit(unitResult.value),
-          image_url: row.image_url ? row.image_url.trim() : null,
+          image_url: row.image_url && !isOpenFoodFactsUrl(row.image_url.trim()) ? row.image_url.trim() : null,
           expiry_date: expiryResult.value,
           is_active: true,
         });
@@ -654,6 +672,9 @@ class ProductService {
         // Add to existing sets to prevent duplicates in same batch
         if (sku) existingSkus.add(sku.toLowerCase());
         if (barcode) existingBarcodes.add(barcode.toLowerCase());
+
+        // Imagen desde Open Food Facts en segundo plano: el import no espera a la API externa
+        productImageService.enqueueIfNeeded(product);
 
         results.success.push({
           row: rowNum,
@@ -912,7 +933,7 @@ class ProductService {
           min_stock: minStock,
           unit: unitResult.value,
           type: deriveTypeFromUnit(unitResult.value),
-          image_url: row.image_url ? row.image_url.trim() : null,
+          image_url: row.image_url && !isOpenFoodFactsUrl(row.image_url.trim()) ? row.image_url.trim() : null,
           expiry_date: expiryResult.value,
           is_active: true,
         });
@@ -920,6 +941,9 @@ class ProductService {
         // Add to existing sets to prevent duplicates in same batch
         if (sku) existingSkus.add(sku.toLowerCase());
         if (barcode) existingBarcodes.add(barcode.toLowerCase());
+
+        // Imagen desde Open Food Facts en segundo plano: el import no espera a la API externa
+        productImageService.enqueueIfNeeded(product);
 
         results.success.push({
           row: rowNum,

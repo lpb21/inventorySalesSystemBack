@@ -2,7 +2,7 @@
  * Rate Limiting Middleware
  * Protege la API contra saturación de peticiones
  */
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 // Store para Redis (próximamente)
 // const RedisStore = require('rate-limit-redis');
@@ -61,6 +61,49 @@ const uploadLimiter = rateLimit({
       code: 'UPLOAD_RATE_LIMIT_EXCEEDED',
       message: 'Demasiados archivos subidos. Intenta nuevamente en 5 minutos.',
       retryAfter: 300
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Clave por usuario autenticado (varios cajeros detrás de la misma IP de la tienda)
+const userKeyGenerator = (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip));
+
+/**
+ * Rate limiter para subida de imágenes de productos
+ * 30 imágenes por 5 minutos por usuario (cargar el catálogo sin tumbar la instancia)
+ */
+const imageUploadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 30,
+  keyGenerator: userKeyGenerator,
+  message: {
+    success: false,
+    error: {
+      code: 'IMAGE_UPLOAD_RATE_LIMIT_EXCEEDED',
+      message: 'Demasiadas imágenes subidas. Intenta nuevamente en unos minutos.',
+      retryAfter: 300
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Rate limiter para búsquedas en Open Food Facts
+ * 30 búsquedas por minuto por usuario (protege el límite global de OFF por IP del servidor)
+ */
+const barcodeLookupLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 30,
+  keyGenerator: userKeyGenerator,
+  message: {
+    success: false,
+    error: {
+      code: 'LOOKUP_RATE_LIMIT_EXCEEDED',
+      message: 'Demasiadas búsquedas de código de barras. Intenta nuevamente en un minuto.',
+      retryAfter: 60
     }
   },
   standardHeaders: true,
@@ -159,6 +202,8 @@ module.exports = {
   generalLimiter,
   authLimiter,
   uploadLimiter,
+  imageUploadLimiter,
+  barcodeLookupLimiter,
   reportLimiter,
   writeOperationsLimiter,
   createTenantLimiter,

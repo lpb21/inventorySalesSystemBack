@@ -109,6 +109,22 @@ const Product = sequelize.define('Product', {
     allowNull: true,
     field: 'image_url',
   },
+  // Origen de la imagen: 'user' (subida por el tenant), 'off' (Open Food Facts, CC BY-SA),
+  // 'generic' (banco propio), 'none' (el usuario la quitó: no autocompletar) o null (sin gestionar)
+  image_source: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: 'image_source',
+    validate: {
+      isIn: [['user', 'off', 'generic', 'none']],
+    },
+  },
+  // Referencia del origen para atribución (p. ej. el código de barras en Open Food Facts)
+  image_source_ref: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'image_source_ref',
+  },
   expiry_date: {
     type: DataTypes.DATEONLY,
     allowNull: true,

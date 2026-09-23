@@ -119,7 +119,15 @@ ALLOWED_ORIGINS=https://tu-frontend.com
  
 # Redis (opcional — si no lo usas, déjalo desactivado)
 REDIS_ENABLED=false
+
+# Imágenes de productos (ver sección 7.1)
+S3_BUCKET=puntofresco-product-images
+S3_REGION=us-east-1
+CDN_BASE_URL=https://dxxxxxxxxxxxx.cloudfront.net
+OFF_USER_AGENT=PuntoFresco/1.0 (tu-email@dominio.com)
 ```
+
+> **sharp (procesamiento de imágenes) usa binarios nativos por plataforma.** Ejecuta siempre `npm ci` **en el propio EC2** (o dentro del contenedor). **Nunca** copies `node_modules` desde WSL/Windows/Mac con scp/rsync: `npm` no falla, pero la app revienta en runtime con un error tipo *invalid ELF header* al cargar sharp.
  
 > **Nota sobre el puerto:** tu `ecosystem.config.js` fuerza `PORT: 80` en el entorno de PM2. Si usas Nginx como reverse proxy (recomendado, y necesario para SSL), es mejor que la app corra en el `3000` y Nginx escuche en el `80/443`. Ajusta el `PORT` del `ecosystem.config.js` a `3000` para que no choque con Nginx. Ver sección 7.
  
@@ -177,6 +185,10 @@ Contenido:
 server {
     listen 80;
     server_name tu-dominio.com;   # o tu IP pública
+
+    # Por defecto Nginx rechaza cuerpos > 1MB con 413: las fotos de producto (máx. 5MB)
+    # y los CSV de importación (máx. 10MB) necesitan este límite
+    client_max_body_size 10m;
  
     location / {
         proxy_pass http://localhost:3000;
@@ -197,6 +209,37 @@ sudo nginx -t                    # verificar que la config es válida
 sudo systemctl reload nginx
 ```
  
+---
+
+## 7.1 Imágenes de productos: S3 + CloudFront + IAM
+
+Cada producto tiene **una sola** imagen WebP de 512×512 (~20–40 KB) en
+`tenants/{tenantId}/products/{productId}.webp`, que se sobrescribe al cambiarla.
+
+1. **Bucket S3** (privado, "Block all public access" activado), p. ej. `puntofresco-product-images`, misma región que el EC2.
+2. **CloudFront** con el bucket como origen usando **Origin Access Control (OAC)**; aplicar la bucket policy que CloudFront propone. Crea una **cache policy personalizada** (copia de `CachingOptimized`) con *Query strings → Include specified: `v`*. Es obligatorio: `CachingOptimized` ignora el query string, y el backend invalida la foto cambiando `?v=` en la URL (envía `Cache-Control: max-age=31536000, immutable`). Sin esto, CloudFront seguiría sirviendo la foto vieja tras un cambio.
+3. **Rol IAM de la instancia EC2** con permisos mínimos:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": ["s3:PutObject", "s3:DeleteObject"],
+       "Resource": "arn:aws:s3:::puntofresco-product-images/tenants/*"
+     }]
+   }
+   ```
+   El SDK toma las credenciales del rol automáticamente: **no** pongas `AWS_ACCESS_KEY_ID` en el `.env`.
+4. Variables `S3_BUCKET`, `S3_REGION`, `CDN_BASE_URL`, `OFF_USER_AGENT` en el `.env`.
+5. Tras la migración (`npm run migrate`), llenar las imágenes de los productos existentes desde Open Food Facts (se puede repetir sin riesgo):
+   ```bash
+   npm run images:backfill -- --dry-run          # ver cuántos candidatos hay
+   npm run images:backfill                        # todos los tenants (~85 productos/min)
+   npm run images:backfill -- --tenant=<uuid> --limit=200
+   ```
+
+Costos de referencia: almacenamiento ~USD 0.023/GB-mes (10.000 productos ≈ 400 MB ≈ USD 0.01/mes); PUT ~USD 0.005 por 1.000; las lecturas salen mayormente de la caché de CloudFront (1 TB/mes en la capa gratuita), no de S3.
+
 ---
  
 ## 8. Configurar SSL

@@ -12,7 +12,8 @@ const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
 const { validate } = require('../../middlewares/validationMiddleware');
 const { productSchema, updateProductSchema } = require('../../utils/validators');
-const { uploadLimiter, writeOperationsLimiter } = require('../../middlewares/rateLimitMiddleware');
+const { uploadLimiter, writeOperationsLimiter, imageUploadLimiter, barcodeLookupLimiter } = require('../../middlewares/rateLimitMiddleware');
+const env = require('../../config/env');
 const fs = require('fs');
 
 // Configure multer for CSV file upload
@@ -42,6 +43,41 @@ const upload = multer({
   },
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
+
+// Multer para imágenes de producto: en memoria (sharp procesa el buffer, nada toca el disco)
+const ALLOWED_IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/heic', 'image/heif', 'image/gif'];
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    // Primer filtro barato; la validación real la hace sharp leyendo el contenido
+    if (ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes JPG, PNG o WebP'), false);
+    }
+  },
+  limits: { fileSize: env.productImages.maxUploadBytes, files: 1 },
+});
+
+const handleImageUpload = (req, res, next) => {
+  imageUpload.single('image')(req, res, (err) => {
+    if (err) {
+      const maxMb = Math.round(env.productImages.maxUploadBytes / (1024 * 1024));
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? `La imagen supera el tamaño máximo de ${maxMb}MB`
+        : err.message;
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'FILE_UPLOAD_ERROR',
+          message,
+        },
+      });
+    }
+    next();
+  });
+};
 
 // Apply auth and tenant middleware to all routes
 router.use(authMiddleware);
@@ -84,8 +120,14 @@ router.get('/expiring-soon', permissionMiddleware('products:read'), productContr
 router.get('/expired', permissionMiddleware('products:read'), productController.getExpired);
 router.get('/search', permissionMiddleware('products:read'), productController.searchProducts);
 router.get('/barcode/:code', permissionMiddleware('products:read'), productController.getProductByBarcode);
+router.get('/lookup/:barcode', barcodeLookupLimiter, permissionMiddleware('products:read'), productController.lookupBarcode);
 router.get('/:id', permissionMiddleware('products:read'), productController.getProductById);
 router.put('/:id', writeOperationsLimiter, permissionMiddleware('products:update'), validate(updateProductSchema), productController.updateProduct);
 router.delete('/:id', permissionMiddleware('products:delete'), productController.deleteProduct);
+
+// Imagen del producto (una sola por producto, se sobrescribe)
+router.put('/:id/image', imageUploadLimiter, permissionMiddleware('products:update'), handleImageUpload, productController.uploadImage);
+router.delete('/:id/image', writeOperationsLimiter, permissionMiddleware('products:update'), productController.deleteImage);
+router.post('/:id/image/lookup', barcodeLookupLimiter, permissionMiddleware('products:update'), productController.lookupImage);
 
 module.exports = router;

@@ -99,6 +99,40 @@ module.exports = {
     },
   },
 
+  // Almacenamiento de imágenes de productos (S3 + CloudFront opcional).
+  // Credenciales: cadena por defecto del SDK (rol IAM de la instancia EC2); no se usan llaves en .env.
+  storage: {
+    s3Bucket: process.env.S3_BUCKET || '',
+    s3Region: process.env.S3_REGION || 'us-east-1',
+    // URL pública base (p. ej. https://dxxxx.cloudfront.net). Si falta, se usa la URL directa del bucket.
+    publicBaseUrl: (process.env.CDN_BASE_URL || '').replace(/\/+$/, ''),
+    keyPrefix: process.env.S3_KEY_PREFIX || 'tenants',
+  },
+
+  // Imágenes de productos: procesamiento con sharp
+  productImages: {
+    maxUploadBytes: parseInt(process.env.PRODUCT_IMAGE_MAX_UPLOAD_BYTES) || 5 * 1024 * 1024,
+    size: parseInt(process.env.PRODUCT_IMAGE_SIZE) || 512,
+    quality: parseInt(process.env.PRODUCT_IMAGE_QUALITY) || 75,
+    maxInputPixels: parseInt(process.env.PRODUCT_IMAGE_MAX_INPUT_PIXELS) || 40000000,
+    maxConcurrent: parseInt(process.env.PRODUCT_IMAGE_MAX_CONCURRENT) || 2,
+  },
+
+  // Open Food Facts (búsqueda de imágenes por código de barras)
+  openFoodFacts: {
+    // Apagado en tests para no hacer llamadas externas
+    enabled: process.env.OFF_ENABLED
+      ? process.env.OFF_ENABLED === 'true'
+      : process.env.NODE_ENV !== 'test',
+    baseUrl: (process.env.OFF_BASE_URL || 'https://world.openfoodfacts.org').replace(/\/+$/, ''),
+    // OFF exige un User-Agent propio: "NombreApp/Versión (email de contacto)"
+    userAgent: process.env.OFF_USER_AGENT || 'PuntoFresco/1.0',
+    timeoutMs: parseInt(process.env.OFF_TIMEOUT_MS) || 3000,
+    // ~85 req/min, por debajo del límite de 100/min de OFF para lectura de productos
+    minIntervalMs: parseInt(process.env.OFF_MIN_INTERVAL_MS) || 700,
+    cacheTtlSeconds: parseInt(process.env.OFF_CACHE_TTL_SECONDS) || 30 * 24 * 60 * 60,
+  },
+
   epayco: {
     baseUrl: process.env.EPAYCO_BASE_URL || 'https://apify.epayco.co',
     pCustId: process.env.EPAYCO_P_CUST_ID || '',

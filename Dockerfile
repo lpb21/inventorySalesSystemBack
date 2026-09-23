@@ -1,5 +1,5 @@
 # Multi-stage Docker build para Node.js API
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Crear directorio de trabajo
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Etapa de producción
-FROM node:18-alpine AS production
+FROM node:24-alpine AS production
 
 # Crear usuario no-root para seguridad
 RUN addgroup -g 1001 -S nodejs

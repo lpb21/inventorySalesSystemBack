@@ -3,6 +3,7 @@
  * Handles product endpoints
  */
 const productService = require('../services/productService');
+const productImageService = require('../services/productImageService');
 const { asyncHandler, formatResponse } = require('../utils/helpers');
 const csv = require('csv-parser');
 const fs = require('fs');
@@ -11,6 +12,7 @@ const { EventEmitter } = require('events');
 const limitService = require('../services/limitService');
 const logger = require('../utils/logger');
 const { normalizeRow } = require('../utils/csvHeaders');
+const { ValidationError } = require('../utils/errors');
 
 // Event emitter for progress updates
 const importProgress = new EventEmitter();
@@ -239,6 +241,59 @@ class ProductController {
     const product = await productService.getProductByBarcode(req.tenantId, req.params.code);
 
     res.status(200).json(formatResponse(product));
+  });
+
+  /**
+   * GET /v1/products/lookup/:barcode
+   * Vista previa desde Open Food Facts para el formulario (no guarda nada)
+   */
+  lookupBarcode = asyncHandler(async (req, res, next) => {
+    const result = await productImageService.lookupBarcode(req.params.barcode);
+
+    res.status(200).json(formatResponse(result));
+  });
+
+  /**
+   * PUT /v1/products/:id/image
+   * Sube la foto propia del producto (multipart, campo "image")
+   */
+  uploadImage = asyncHandler(async (req, res, next) => {
+    if (!req.file) {
+      throw new ValidationError('No se ha proporcionado ninguna imagen');
+    }
+
+    const product = await productImageService.uploadUserImage(
+      req.tenantId, req.params.id, req.file.buffer, req.user.id
+    );
+
+    res.status(200).json(formatResponse(product));
+  });
+
+  /**
+   * DELETE /v1/products/:id/image
+   * Quita la imagen del producto (no se vuelve a autocompletar)
+   */
+  deleteImage = asyncHandler(async (req, res, next) => {
+    const product = await productImageService.removeImage(req.tenantId, req.params.id, req.user.id);
+
+    res.status(200).json(formatResponse(product));
+  });
+
+  /**
+   * POST /v1/products/:id/image/lookup
+   * Búsqueda manual en Open Food Facts ("Buscar imagen"); puede reemplazar la actual
+   */
+  lookupImage = asyncHandler(async (req, res, next) => {
+    const result = await productImageService.enrichFromOpenFoodFacts(req.tenantId, req.params.id, {
+      force: true,
+      userId: req.user.id,
+    });
+
+    res.status(200).json(formatResponse({
+      status: result.status,
+      reason: result.reason || null,
+      product: result.product || null,
+    }));
   });
 
   /**
