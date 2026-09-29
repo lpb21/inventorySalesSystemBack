@@ -306,7 +306,33 @@ const updateAnnouncementSchema = Joi.object({
   expires_at: Joi.date().iso().optional().allow(null),
 });
 
+// Datos del negocio (Configuración > Datos del Negocio). Solo estos campos.
+const updateTenantBusinessSchema = Joi.object({
+  business_name: Joi.string().trim().min(2).max(255).required(),
+  address: Joi.string().trim().max(500).allow('', null),
+  phone: Joi.string().trim().max(50).allow('', null),
+});
+
+// SMS (superadmin)
+const setSmsEnabledSchema = Joi.object({
+  enabled: Joi.boolean().required(),
+});
+
+// Paquete comprado (package_code) o ajuste manual (amount + note), no ambos.
+const addSmsCreditsSchema = Joi.object({
+  package_code: Joi.string().valid('small', 'medium', 'large', 'xlarge'),
+  amount: Joi.number().integer().invalid(0),
+  note: Joi.string().trim().max(500).allow('', null),
+}).xor('package_code', 'amount');
+
 module.exports = {
+  // Tenant
+  updateTenantBusinessSchema,
+
+  // SMS
+  setSmsEnabledSchema,
+  addSmsCreditsSchema,
+
   // Auth
   loginSchema,
   registerSchema,

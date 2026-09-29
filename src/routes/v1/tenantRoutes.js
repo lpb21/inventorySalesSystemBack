@@ -9,7 +9,7 @@ const authMiddleware = require('../../middlewares/authMiddleware');
 const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { roleMiddleware } = require('../../middlewares/permissionMiddleware');
 const { validate } = require('../../middlewares/validationMiddleware');
-const { createTenantSchema } = require('../../utils/validators');
+const { createTenantSchema, updateTenantBusinessSchema } = require('../../utils/validators');
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -24,8 +24,9 @@ router.get('/', roleMiddleware(['owner', 'superadmin']), tenantController.getTen
 // GET /v1/tenants/:id - requires tenant context
 router.get('/:id', tenantMiddleware, tenantController.getTenantById);
 
-// PUT /v1/tenants/:id - requires tenant context
-router.put('/:id', tenantMiddleware, tenantController.updateTenant);
+// PUT /v1/tenants/:id - datos del negocio (id = 'current' para la propia empresa)
+// Solo owner o superadmin; el controlador limita a la propia empresa y a campos permitidos.
+router.put('/:id', tenantMiddleware, roleMiddleware(['owner', 'superadmin']), validate(updateTenantBusinessSchema), tenantController.updateTenant);
 
 // DELETE /v1/tenants/:id - requires tenant context
 router.delete('/:id', roleMiddleware(['owner', 'superadmin']), tenantController.deleteTenant);

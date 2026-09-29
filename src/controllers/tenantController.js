@@ -7,6 +7,14 @@ const { asyncHandler, formatResponse } = require('../utils/helpers');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const { AuthorizationError, NotFoundError, ValidationError } = require('../utils/errors');
+const tenantMiddleware = require('../middlewares/tenantMiddleware');
+const auditService = require('../services/auditService');
+
+// Datos del negocio que el propietario puede editar desde Configuración.
+const UPDATABLE_TENANT_FIELDS = ['business_name', 'address', 'phone'];
+
+const isSuperadmin = (req) => Boolean(req.user?.isSuperadmin || req.user?.role === 'superadmin');
 
 class TenantController {
   /**
@@ -142,6 +150,10 @@ class TenantController {
     if (req.params.id === 'current') {
       tenant = req.tenant;
     } else {
+      // Solo el superadmin puede consultar otras empresas
+      if (!isSuperadmin(req) && req.params.id !== req.tenantId) {
+        throw new AuthorizationError('No puedes consultar otra empresa');
+      }
       tenant = await Tenant.findByPk(req.params.id);
     }
 
@@ -153,19 +165,56 @@ class TenantController {
   });
 
   /**
-   * PUT /v1/tenants/:id
-   * Update tenant
+   * PUT /v1/tenants/:id  (id = 'current' para la empresa del usuario)
+   * Actualiza los datos del negocio. Solo owner (su propia empresa) o superadmin.
+   *
+   * Lista blanca de campos: antes se hacía tenant.update(req.body) y cualquier
+   * usuario podía cambiar sms_balance, sms_enabled, subscription_status, plan...
+   * de cualquier empresa. Esos campos solo se cambian desde los endpoints de admin.
    */
   updateTenant = asyncHandler(async (req, res, next) => {
-    const tenant = await Tenant.findByPk(req.params.id);
-
-    if (!tenant) {
-      return res.status(404).json(formatResponse(null, 'Tenant not found'));
+    const tenantId = req.params.id === 'current' ? req.tenantId : req.params.id;
+    if (!tenantId) {
+      throw new ValidationError('Este usuario no pertenece a una empresa');
+    }
+    if (!isSuperadmin(req) && tenantId !== req.tenantId) {
+      throw new AuthorizationError('No puedes modificar otra empresa');
     }
 
-    await tenant.update(req.body);
+    const tenant = await Tenant.findByPk(tenantId);
+    if (!tenant) {
+      throw new NotFoundError('Empresa no encontrada');
+    }
 
-    res.status(200).json(formatResponse(tenant));
+    const changes = {};
+    UPDATABLE_TENANT_FIELDS.forEach((field) => {
+      if (req.body[field] !== undefined) changes[field] = req.body[field];
+    });
+    if (typeof changes.business_name === 'string') changes.business_name = changes.business_name.trim();
+
+    const before = {};
+    Object.keys(changes).forEach((field) => { before[field] = tenant[field]; });
+
+    await tenant.update(changes);
+    await tenantMiddleware.invalidateTenantCache(tenantId);
+
+    await auditService.log({
+      tenantId,
+      userId: req.user.userId,
+      entityType: 'tenant',
+      entityId: tenantId,
+      action: 'update',
+      changes: { before, after: changes },
+      description: 'Datos del negocio actualizados',
+    });
+
+    res.status(200).json(formatResponse({
+      id: tenant.id,
+      name: tenant.name,
+      business_name: tenant.business_name,
+      address: tenant.address,
+      phone: tenant.phone,
+    }));
   });
 
   /**
