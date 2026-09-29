@@ -10,6 +10,7 @@ const { permissionMiddleware } = require('../../middlewares/permissionMiddleware
 const { validate } = require('../../middlewares/validationMiddleware');
 const { Customer } = require('../../models');
 const customerPaymentService = require('../../services/customerPaymentService');
+const smsController = require('../../controllers/smsController');
 const cacheService = require('../../services/cacheService');
 const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
@@ -346,6 +347,12 @@ router.post('/:id/payments', permissionMiddleware('customers:create'), async (re
     next(error);
   }
 });
+
+/**
+ * POST /:id/payments/:paymentId/notify-sms
+ * Aviso SMS del abono al cliente (botón del modal; nunca automático)
+ */
+router.post('/:id/payments/:paymentId/notify-sms', permissionMiddleware('customers:create'), smsController.notifyPayment);
 
 /**
  * GET /:id/balance

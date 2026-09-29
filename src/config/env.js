@@ -112,4 +112,31 @@ module.exports = {
       process.env.NODE_ENV !== 'production' &&
       process.env.EPAYCO_SKIP_WEBHOOK_SIGNATURE_VALIDATION === 'true',
   },
+
+  // Notificaciones SMS a clientes de fiado (Twilio)
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+  },
+  sms: {
+    // En test queda apagado por defecto para no gastar saldo corriendo la suite.
+    enabled: process.env.SMS_ENABLED
+      ? process.env.SMS_ENABLED === 'true'
+      : process.env.NODE_ENV !== 'test',
+    // Tope mensual global "a ojo" (0 = sin tope). Freno de emergencia ante un bug que
+    // dispare envíos en bucle. Contador en memoria: se reinicia con el proceso.
+    monthlyCap: parseInt(process.env.SMS_MONTHLY_CAP) || 0,
+    // Costo aproximado de 1 SMS en la moneda del saldo de Twilio (USD).
+    unitCostUsd: parseFloat(process.env.SMS_UNIT_COST_USD) || 0.05,
+    // Alerta si saldo Twilio < créditos pendientes × costo × ratio (margen de seguridad).
+    alertRatio: parseFloat(process.env.SMS_BALANCE_ALERT_RATIO) || 1.2,
+    // Celulares E.164 de superadmins que reciben la alerta, separados por coma.
+    adminAlertPhones: (process.env.SMS_ADMIN_ALERT_PHONES || '')
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean),
+    // Cada cuánto corre el chequeo de saldo (por defecto cada 6 horas).
+    balanceCheckCron: process.env.SMS_BALANCE_CHECK_CRON || '0 */6 * * *',
+  },
 };

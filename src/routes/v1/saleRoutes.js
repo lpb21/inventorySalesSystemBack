@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const saleController = require('../../controllers/saleController');
+const smsController = require('../../controllers/smsController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 const tenantMiddleware = require('../../middlewares/tenantMiddleware');
 const { permissionMiddleware } = require('../../middlewares/permissionMiddleware');
@@ -23,5 +24,7 @@ router.get('/today', permissionMiddleware('sales:read'), saleController.getToday
 router.get('/by-date', permissionMiddleware('sales:read'), saleController.getSalesByDate);
 router.get('/:id', permissionMiddleware('sales:read'), saleController.getSaleById);
 router.post('/:id/cancel', writeOperationsLimiter, permissionMiddleware('sales:cancel'), validate(cancelSaleSchema), saleController.cancelSale);
+// Aviso SMS del fiado al cliente (botón del modal; nunca automático)
+router.post('/:id/notify-sms', writeOperationsLimiter, permissionMiddleware('sales:create'), smsController.notifySale);
 
 module.exports = router;

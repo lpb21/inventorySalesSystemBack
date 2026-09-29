@@ -22,6 +22,9 @@ const Recipe = require('./Recipe');
 const RecipeItem = require('./RecipeItem');
 const CustomerPayment = require('./CustomerPayment');
 const Announcement = require('./Announcement');
+const SmsCreditTransaction = require('./SmsCreditTransaction');
+const SmsLog = require('./SmsLog');
+const SmsBalanceCheck = require('./SmsBalanceCheck');
 
 // =====================
 // Tenant associations
@@ -172,6 +175,17 @@ CustomerPayment.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' 
 Announcement.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 
 // =====================
+// SMS associations
+// =====================
+Tenant.hasMany(SmsCreditTransaction, { foreignKey: 'tenant_id', as: 'smsCreditTransactions' });
+SmsCreditTransaction.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+SmsCreditTransaction.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+
+Tenant.hasMany(SmsLog, { foreignKey: 'tenant_id', as: 'smsLogs' });
+SmsLog.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+SmsLog.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
+
+// =====================
 // Export all models
 // =====================
 module.exports = {
@@ -194,5 +208,8 @@ module.exports = {
   Recipe,
   RecipeItem,
   CustomerPayment,
-  Announcement
+  Announcement,
+  SmsCreditTransaction,
+  SmsLog,
+  SmsBalanceCheck,
 };

@@ -59,6 +59,20 @@ const Tenant = sequelize.define('Tenant', {
     defaultValue: true,
     field: 'is_active',
   },
+  // SMS a clientes de fiado: lo habilita el superadmin; saldo prepago en créditos.
+  sms_enabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'sms_enabled',
+  },
+  sms_balance: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'sms_balance',
+    validate: { min: 0 },
+  },
 }, {
   tableName: 'tenants',
   indexes: [

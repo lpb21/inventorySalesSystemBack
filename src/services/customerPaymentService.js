@@ -2,7 +2,7 @@
  * Customer Payment Service
  * Handles customer credit payments (abonos) and balance management
  */
-const { Customer, Sale, SaleItem, Product, sequelize } = require('../models');
+const { Customer, CustomerPayment, Sale, SaleItem, Product, sequelize } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const cacheService = require('./cacheService');
 const logger = require('../utils/logger');
@@ -55,8 +55,16 @@ class CustomerPaymentService {
       // Update customer credit balance
       await customer.update({ credit_balance: newBalance }, { transaction });
 
-      // TODO: Create payment record in a new CustomerPayment model if needed
-      // For now, we'll just update the balance
+      // Historial del abono (también permite notificarlo por SMS una sola vez)
+      const payment = await CustomerPayment.create({
+        tenant_id: tenantId,
+        customer_id: customer.id,
+        amount,
+        previous_balance: currentBalance,
+        new_balance: newBalance,
+        note: paymentData.note || null,
+        created_by: userId || null,
+      }, { transaction });
 
       await transaction.commit();
 
@@ -72,6 +80,7 @@ class CustomerPaymentService {
       );
 
       return {
+        payment_id: payment.id,
         customer_id: customer.id,
         customer_name: customer.name,
         previous_balance: currentBalance,
